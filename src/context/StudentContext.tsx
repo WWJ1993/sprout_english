@@ -46,13 +46,15 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     async function boot() {
+      const t0 = performance.now()
+      console.log('[boot] start')
       const alreadySeeded = localStorage.getItem(SEED_VERSION_KEY) === SEED_VERSION
 
-      // 并行拉学生列表，同时决定是否需要检查种子
       const [list, count] = await Promise.all([
         getAllStudents(),
         alreadySeeded ? Promise.resolve(1) : countCourses(),
       ])
+      console.log(`[boot] getAllStudents done — ${(performance.now() - t0).toFixed(0)}ms`)
 
       // 确保有默认学生 Mera
       let students = list
@@ -88,6 +90,7 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem(CURRENT_STUDENT_KEY, id)
       }
       setLoading(false)
+      console.log(`[boot] done — ${(performance.now() - t0).toFixed(0)}ms total`)
     }
     boot()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
