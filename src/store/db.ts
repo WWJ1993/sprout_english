@@ -87,14 +87,28 @@ export async function getAllCourses(): Promise<Course[]> {
   return (data ?? []).map(rowToCourse)
 }
 
+// 列表只拉元数据，不含大字段
 export async function getCoursesByStudent(studentId: string): Promise<Course[]> {
   const { data, error } = await supabase
     .from('courses')
-    .select('*')
+    .select('id,student_id,date,teacher,student,topic,duration,rate,good,weak,uploaded_at')
     .eq('student_id', studentId)
     .order('date')
   if (error) throw error
-  return (data ?? []).map(rowToCourse)
+  return (data ?? []).map(r => ({
+    ...rowToCourse({ ...r, reports: { report: '', vocab: '', qa: '', plan: '' }, transcript: undefined, transcript_ts: undefined }),
+  }))
+}
+
+// 按需加载单课完整数据（含 reports 和字幕）
+export async function getCourseDetail(id: number): Promise<Course | null> {
+  const { data, error } = await supabase
+    .from('courses')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (error) return null
+  return rowToCourse(data)
 }
 
 export async function saveCourse(c: Course): Promise<void> {

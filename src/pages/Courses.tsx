@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useStudent } from '../context/StudentContext'
-import { getCoursesByStudent, saveCourse } from '../store/db'
+import { getCoursesByStudent, getCourseDetail, saveCourse } from '../store/db'
 import { rateBg } from '../lib/weakness'
 import { exportReportPdf, exportTranscriptPdf } from '../lib/pdfExport'
 import TranscriptView from '../components/Transcript/TranscriptView'
@@ -37,10 +37,20 @@ function UploadZone({ onUpload }: { onUpload: (file: File) => void }) {
   )
 }
 
-function CourseDetail({ course }: { course: Course }) {
+function CourseDetail({ course: meta }: { course: Course }) {
+  const [course, setCourse] = useState<Course>(meta)
+  const [loadingDetail, setLoadingDetail] = useState(true)
   const [tab, setTab] = useState<TabKey>('report')
   const [exporting, setExporting] = useState(false)
   const iframeKey = `${course.id}-${tab}`
+
+  useEffect(() => {
+    setLoadingDetail(true)
+    getCourseDetail(meta.id).then(detail => {
+      if (detail) setCourse(detail)
+      setLoadingDetail(false)
+    })
+  }, [meta.id])
 
   const reports = course.reports || {}
   const hasReport = (key: string) => !!(reports as Record<string, string>)[key]
@@ -139,7 +149,11 @@ function CourseDetail({ course }: { course: Course }) {
         </div>
 
         <div className="p-4">
-          {tab === 'transcript' ? (
+          {loadingDetail ? (
+            <div className="flex items-center justify-center py-16 text-gray-400 text-sm gap-2">
+              <span className="animate-spin">⟳</span> 加载中…
+            </div>
+          ) : tab === 'transcript' ? (
             <TranscriptView
               transcriptTs={course.transcriptTs}
               transcript={course.transcript}
