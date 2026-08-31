@@ -48,7 +48,6 @@ function courseToRow(c: Course) {
     rate: c.rate,
     good: c.good,
     weak: c.weak,
-    reports: c.reports,
     transcript: c.transcript ?? null,
     transcript_ts: c.transcriptTs ?? null,
     uploaded_at: c.uploadedAt ?? null,
@@ -115,22 +114,59 @@ export async function getCoursesByStudent(studentId: string): Promise<Course[]> 
   })
 }
 
-// 按需加载单课完整数据（含 reports 和字幕）
+// 按需加载单课完整数据（不含 reports）
 export async function getCourseDetail(id: number): Promise<Course | null> {
   return timed(`getCourseDetail(${id})`, async () => {
     const { data, error } = await supabase
       .from('courses')
-      .select('*')
+      .select('id,student_id,date,teacher,student,topic,duration,rate,good,weak,transcript,transcript_ts,uploaded_at')
       .eq('id', id)
       .single()
     if (error) return null
-    return rowToCourse(data)
+    return rowToCourse({ ...data, reports: { report: '', vocab: '', qa: '', plan: '' } })
+  })
+}
+
+// 按需加载单个 tab 的报告内容
+export async function getCourseReport(courseId: number, tab: string): Promise<string> {
+  return timed(`getCourseReport(${courseId}, ${tab})`, async () => {
+    const { data, error } = await supabase
+      .from('course_reports')
+      .select('content')
+      .eq('course_id', courseId)
+      .eq('tab', tab)
+      .single()
+    if (error || !data) return ''
+    return data.content as string
+  })
+}
+
+// 查询某课程有哪些 tab 有报告
+export async function getCourseReportTabs(courseId: number): Promise<string[]> {
+  return timed(`getCourseReportTabs(${courseId})`, async () => {
+    const { data, error } = await supabase
+      .from('course_reports')
+      .select('tab')
+      .eq('course_id', courseId)
+    if (error || !data) return []
+    return data.map((r: { tab: string }) => r.tab)
   })
 }
 
 export async function saveCourse(c: Course): Promise<void> {
-  const { error } = await supabase.from('courses').upsert(courseToRow(c))
+  const row = courseToRow(c)
+  const { reports, ...courseRow } = row as typeof row & { reports?: unknown }
+  void reports
+  const { error } = await supabase.from('courses').upsert(courseRow)
   if (error) throw error
+  // save reports to separate table
+  const reportEntries = Object.entries(c.reports ?? {}).filter(([, v]) => v)
+  if (reportEntries.length) {
+    const { error: re } = await supabase.from('course_reports').upsert(
+      reportEntries.map(([tab, content]) => ({ course_id: c.id, tab, content }))
+    )
+    if (re) throw re
+  }
 }
 
 export async function countCourses(): Promise<number> {

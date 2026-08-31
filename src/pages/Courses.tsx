@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useStudent } from '../context/StudentContext'
-import { getCoursesByStudent, getCourseDetail, saveCourse } from '../store/db'
+import { getCoursesByStudent, getCourseDetail, getCourseReport, getCourseReportTabs, saveCourse } from '../store/db'
 import { rateBg } from '../lib/weakness'
 import { exportReportPdf, exportTranscriptPdf } from '../lib/pdfExport'
 import TranscriptView from '../components/Transcript/TranscriptView'
@@ -42,26 +42,42 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
   const [loadingDetail, setLoadingDetail] = useState(() => !cache.has(meta.id))
   const [tab, setTab] = useState<TabKey>('report')
   const [exporting, setExporting] = useState(false)
+  const [availableTabs, setAvailableTabs] = useState<string[]>([])
+  const [tabContent, setTabContent] = useState<Record<string, string>>({})
+  const [loadingTab, setLoadingTab] = useState(false)
   const iframeKey = `${course.id}-${tab}`
 
+  // 加载课程元数据 + 字幕 + 可用 tab 列表
   useEffect(() => {
     if (cache.has(meta.id)) {
       setCourse(cache.get(meta.id)!)
       setLoadingDetail(false)
-      return
+    } else {
+      setLoadingDetail(true)
+      getCourseDetail(meta.id).then(detail => {
+        if (detail) { cache.set(meta.id, detail); setCourse(detail) }
+        setLoadingDetail(false)
+      })
     }
-    setLoadingDetail(true)
-    getCourseDetail(meta.id).then(detail => {
-      if (detail) {
-        cache.set(meta.id, detail)
-        setCourse(detail)
-      }
-      setLoadingDetail(false)
-    })
+    setTabContent({})
+    setAvailableTabs([])
+    setTab('report')
+    getCourseReportTabs(meta.id).then(setAvailableTabs)
   }, [meta.id, cache])
 
-  const reports = course.reports || {}
-  const hasReport = (key: string) => !!(reports as Record<string, string>)[key]
+  // 按需加载当前 tab 内容
+  useEffect(() => {
+    if (tab === 'transcript') return
+    if (tabContent[tab] !== undefined) return
+    setLoadingTab(true)
+    getCourseReport(meta.id, tab).then(content => {
+      setTabContent(prev => ({ ...prev, [tab]: content }))
+      setLoadingTab(false)
+    })
+  }, [tab, meta.id, tabContent])
+
+  const hasReport = (key: string) => availableTabs.includes(key)
+  const currentHtml = tabContent[tab] ?? ''
 
   async function handleExportPdf() {
     setExporting(true)
@@ -71,10 +87,9 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
         if (!ts) return
         await exportTranscriptPdf(ts, `${course.date}-字幕转录.pdf`)
       } else {
-        const html = (reports as Record<string, string>)[tab]
-        if (!html) return
+        if (!currentHtml) return
         const labelMap: Record<string, string> = { report: '课程分析报告', vocab: '句式词汇分析', qa: '问答分析', plan: '三天练习计划' }
-        exportReportPdf(html, `${course.date}-${labelMap[tab] || tab}.pdf`)
+        exportReportPdf(currentHtml, `${course.date}-${labelMap[tab] || tab}.pdf`)
       }
     } finally {
       setExporting(false)
@@ -167,12 +182,16 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
               transcript={course.transcript}
               basename={`${course.date}-${course.teacher}`}
             />
-          ) : hasReport(tab) ? (
+          ) : loadingTab ? (
+            <div className="flex items-center justify-center py-16 text-gray-400 text-sm gap-2">
+              <span className="animate-spin">⟳</span> 加载报告…
+            </div>
+          ) : currentHtml ? (
             <iframe
               key={iframeKey}
               className="report-iframe"
               src={URL.createObjectURL(
-                new Blob([(reports as Record<string, string>)[tab]], { type: 'text/html;charset=utf-8' })
+                new Blob([currentHtml], { type: 'text/html;charset=utf-8' })
               )}
             />
           ) : (
