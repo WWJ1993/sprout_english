@@ -37,20 +37,28 @@ function UploadZone({ onUpload }: { onUpload: (file: File) => void }) {
   )
 }
 
-function CourseDetail({ course: meta }: { course: Course }) {
-  const [course, setCourse] = useState<Course>(meta)
-  const [loadingDetail, setLoadingDetail] = useState(true)
+function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<number, Course> }) {
+  const [course, setCourse] = useState<Course>(() => cache.get(meta.id) ?? meta)
+  const [loadingDetail, setLoadingDetail] = useState(() => !cache.has(meta.id))
   const [tab, setTab] = useState<TabKey>('report')
   const [exporting, setExporting] = useState(false)
   const iframeKey = `${course.id}-${tab}`
 
   useEffect(() => {
+    if (cache.has(meta.id)) {
+      setCourse(cache.get(meta.id)!)
+      setLoadingDetail(false)
+      return
+    }
     setLoadingDetail(true)
     getCourseDetail(meta.id).then(detail => {
-      if (detail) setCourse(detail)
+      if (detail) {
+        cache.set(meta.id, detail)
+        setCourse(detail)
+      }
       setLoadingDetail(false)
     })
-  }, [meta.id])
+  }, [meta.id, cache])
 
   const reports = course.reports || {}
   const hasReport = (key: string) => !!(reports as Record<string, string>)[key]
@@ -185,7 +193,8 @@ export default function Courses() {
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [uploadStatus, setUploadStatus] = useState<{ ok: boolean; msg: string } | null>(null)
   const [loading, setLoading] = useState(true)
-  const [showList, setShowList] = useState(true) // mobile toggle
+  const [showList, setShowList] = useState(true)
+  const detailCache = useRef<Map<number, Course>>(new Map())
 
   const load = async (studentId: string) => {
     setLoading(true)
@@ -275,12 +284,12 @@ export default function Courses() {
           >
             ← 返回列表
           </button>
-          <CourseDetail course={selected} />
+          <CourseDetail course={selected} cache={detailCache.current} />
         </div>
       ) : (
         <div className="hidden sm:flex flex-1 min-w-0">
           {selected
-            ? <CourseDetail course={selected} />
+            ? <CourseDetail course={selected} cache={detailCache.current} />
             : <div className="flex items-center justify-center w-full h-64 text-gray-400 text-sm">选择左侧课程查看</div>
           }
         </div>
