@@ -55,12 +55,25 @@ function courseToRow(c: Course) {
   }
 }
 
+function timed<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  const t = performance.now()
+  return fn().then(r => {
+    console.log(`[db] ${label} — ${(performance.now() - t).toFixed(0)}ms`)
+    return r
+  }, e => {
+    console.error(`[db] ${label} FAILED — ${(performance.now() - t).toFixed(0)}ms`, e)
+    throw e
+  })
+}
+
 // ---- Students ----
 
 export async function getAllStudents(): Promise<Student[]> {
-  const { data, error } = await supabase.from('students').select('*').order('created_at')
-  if (error) throw error
-  return (data ?? []).map(rowToStudent)
+  return timed('getAllStudents', async () => {
+    const { data, error } = await supabase.from('students').select('*').order('created_at')
+    if (error) throw error
+    return (data ?? []).map(rowToStudent)
+  })
 }
 
 export async function saveStudent(s: Student): Promise<void> {
@@ -89,26 +102,30 @@ export async function getAllCourses(): Promise<Course[]> {
 
 // 列表只拉元数据，不含大字段
 export async function getCoursesByStudent(studentId: string): Promise<Course[]> {
-  const { data, error } = await supabase
-    .from('courses')
-    .select('id,student_id,date,teacher,student,topic,duration,rate,good,weak,uploaded_at')
-    .eq('student_id', studentId)
-    .order('date')
-  if (error) throw error
-  return (data ?? []).map(r => ({
-    ...rowToCourse({ ...r, reports: { report: '', vocab: '', qa: '', plan: '' }, transcript: undefined, transcript_ts: undefined }),
-  }))
+  return timed(`getCoursesByStudent(${studentId})`, async () => {
+    const { data, error } = await supabase
+      .from('courses')
+      .select('id,student_id,date,teacher,student,topic,duration,rate,good,weak,uploaded_at')
+      .eq('student_id', studentId)
+      .order('date')
+    if (error) throw error
+    return (data ?? []).map(r => ({
+      ...rowToCourse({ ...r, reports: { report: '', vocab: '', qa: '', plan: '' }, transcript: undefined, transcript_ts: undefined }),
+    }))
+  })
 }
 
 // 按需加载单课完整数据（含 reports 和字幕）
 export async function getCourseDetail(id: number): Promise<Course | null> {
-  const { data, error } = await supabase
-    .from('courses')
-    .select('*')
-    .eq('id', id)
-    .single()
-  if (error) return null
-  return rowToCourse(data)
+  return timed(`getCourseDetail(${id})`, async () => {
+    const { data, error } = await supabase
+      .from('courses')
+      .select('*')
+      .eq('id', id)
+      .single()
+    if (error) return null
+    return rowToCourse(data)
+  })
 }
 
 export async function saveCourse(c: Course): Promise<void> {
