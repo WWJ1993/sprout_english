@@ -46,9 +46,17 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     async function boot() {
+      const alreadySeeded = localStorage.getItem(SEED_VERSION_KEY) === SEED_VERSION
+
+      // 并行拉学生列表，同时决定是否需要检查种子
+      const [list, count] = await Promise.all([
+        getAllStudents(),
+        alreadySeeded ? Promise.resolve(1) : countCourses(),
+      ])
+
       // 确保有默认学生 Mera
-      let list = await getAllStudents()
-      if (!list.length) {
+      let students = list
+      if (!students.length) {
         const mera: Student = {
           id: 'mera',
           name: 'Mera',
@@ -56,18 +64,16 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
           createdAt: '2026-07-15T00:00:00.000Z',
         }
         await saveStudent(mera)
-        list = [mera]
+        students = [mera]
       }
 
-      // 加载种子数据
-      const savedVer = localStorage.getItem(SEED_VERSION_KEY)
-      const count = await countCourses()
-      if (savedVer !== SEED_VERSION || count === 0) {
+      // 加载种子数据（仅首次）
+      if (!alreadySeeded || count === 0) {
         try {
           const resp = await fetch('./courses.json')
           if (resp.ok) {
             const data = await resp.json()
-            for (const c of data) await saveCourse(c)
+            await Promise.all(data.map((c: Parameters<typeof saveCourse>[0]) => saveCourse(c)))
             localStorage.setItem(SEED_VERSION_KEY, SEED_VERSION)
           }
         } catch {
@@ -75,9 +81,9 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      setStudents(list)
-      if (!currentId || !list.find(s => s.id === currentId)) {
-        const id = list[0]?.id || ''
+      setStudents(students)
+      if (!currentId || !students.find(s => s.id === currentId)) {
+        const id = students[0]?.id || ''
         setCurrentId(id)
         localStorage.setItem(CURRENT_STUDENT_KEY, id)
       }
