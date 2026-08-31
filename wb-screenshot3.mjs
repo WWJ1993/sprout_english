@@ -1,0 +1,11 @@
+import { chromium } from 'playwright'
+const browser = await chromium.launch()
+const page = await browser.newPage()
+page.setViewportSize({ width: 1280, height: 900 })
+await page.goto('http://localhost:5173/#/courses')
+await page.waitForTimeout(3000)
+await page.click('button:has-text("字幕")')
+await page.waitForTimeout(800)
+await page.screenshot({ path: '/tmp/wb-transcript-v2.png' })
+console.log('done')
+await browser.close()
