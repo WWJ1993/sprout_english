@@ -153,6 +153,20 @@ export async function getCourseReportTabs(courseId: number): Promise<string[]> {
   })
 }
 
+// 一次请求拿所有 tabs 列表 + 默认 report tab 内容
+export async function getCourseReportsInit(courseId: number): Promise<{ tabs: string[]; reportHtml: string }> {
+  return timed(`getCourseReportsInit(${courseId})`, async () => {
+    const { data, error } = await supabase
+      .from('course_reports')
+      .select('tab,content')
+      .eq('course_id', courseId)
+    if (error || !data) return { tabs: [], reportHtml: '' }
+    const tabs = data.map((r: { tab: string }) => r.tab)
+    const reportRow = data.find((r: { tab: string; content: string }) => r.tab === 'report')
+    return { tabs, reportHtml: reportRow?.content ?? '' }
+  })
+}
+
 export async function saveCourse(c: Course): Promise<void> {
   const row = courseToRow(c)
   const { reports, ...courseRow } = row as typeof row & { reports?: unknown }
@@ -167,6 +181,18 @@ export async function saveCourse(c: Course): Promise<void> {
     )
     if (re) throw re
   }
+}
+
+// 保存课堂笔记（复用 course_reports 表，tab='notes'，content 为纯文本，可反复编辑）
+export async function saveCourseNote(courseId: number, content: string): Promise<void> {
+  return timed(`saveCourseNote(${courseId})`, async () => {
+    const { error } = await supabase.from('course_reports').upsert({
+      course_id: courseId,
+      tab: 'notes',
+      content,
+    })
+    if (error) throw error
+  })
 }
 
 export async function countCourses(): Promise<number> {

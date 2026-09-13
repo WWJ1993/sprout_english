@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useStudent } from '../context/StudentContext'
-import { getCoursesByStudent, getCourseDetail, getCourseReport, getCourseReportTabs, saveCourse } from '../store/db'
+import { getCoursesByStudent, getCourseDetail, getCourseReport, getCourseReportsInit, saveCourse, saveCourseNote } from '../store/db'
 import { rateBg } from '../lib/weakness'
 import { exportReportPdf, exportTranscriptPdf } from '../lib/pdfExport'
 import TranscriptView from '../components/Transcript/TranscriptView'
@@ -11,6 +11,7 @@ const TABS = [
   { key: 'vocab', label: '句式词汇', icon: '🔤' },
   { key: 'qa', label: '问答记录', icon: '💬' },
   { key: 'plan', label: '练习计划', icon: '📝' },
+  { key: 'notes', label: '课堂笔记', icon: '🗒️' },
   { key: 'transcript', label: '字幕', icon: '🎬' },
 ] as const
 
@@ -37,6 +38,110 @@ function UploadZone({ onUpload }: { onUpload: (file: File) => void }) {
   )
 }
 
+const NOTE_TEMPLATE = `🌟 今天我学会了：
+
+  新单词：
+  新句型：
+
+⚠️ 我容易错的地方（复习后记下来）：
+
+  1.
+  2.
+
+🎯 明天我想多练：
+
+`
+
+// 课堂笔记：孩子复习完报告后自己写，可反复编辑保存
+function NotesView({ courseId, initial, onSaved }: { courseId: number; initial: string; onSaved?: () => void }) {
+  const [text, setText] = useState(initial)
+  const [savedText, setSavedText] = useState(initial)
+  const [saving, setSaving] = useState(false)
+  const [savedAt, setSavedAt] = useState<Date | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const dirty = text !== savedText
+
+  // 切换课程时重置
+  useEffect(() => {
+    setText(initial)
+    setSavedText(initial)
+    setSavedAt(null)
+    setError(null)
+  }, [courseId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleSave() {
+    setSaving(true)
+    setError(null)
+    try {
+      await saveCourseNote(courseId, text)
+      setSavedText(text)
+      setSavedAt(new Date())
+      onSaved?.()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '保存失败，请重试')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const empty = !text.trim()
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-xs text-gray-400">
+          复习完上面的报告后，把学到的和容易错的记在这里 ✍️（随时可以修改再保存）
+        </p>
+        <div className="flex items-center gap-2">
+          {empty && (
+            <button
+              onClick={() => setText(NOTE_TEMPLATE)}
+              className="text-xs text-indigo-600 hover:text-indigo-700 px-2 py-1 rounded-lg hover:bg-indigo-50 transition-colors"
+            >
+              ✨ 插入复习模板
+            </button>
+          )}
+          <button
+            onClick={handleSave}
+            disabled={saving || !dirty}
+            className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors
+              ${dirty && !saving
+                ? 'bg-indigo-500 text-white hover:bg-indigo-600 shadow-sm'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+          >
+            {saving ? '保存中…' : dirty ? '💾 保存笔记' : '已保存'}
+          </button>
+        </div>
+      </div>
+
+      {(savedAt || error) && !dirty && (
+        <p className={`text-xs ${error ? 'text-red-500' : 'text-green-600'}`}>
+          {error ?? `✅ 已保存 ${savedAt!.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}（⌘/Ctrl+S 也可以保存）`}
+        </p>
+      )}
+
+      <textarea
+        value={text}
+        onChange={e => setText(e.target.value)}
+        onKeyDown={e => {
+          if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+            e.preventDefault()
+            if (dirty && !saving) handleSave()
+          }
+        }}
+        placeholder={'复习完写点笔记吧～\n\n例如：\n今天学会了 stork 是鹳\nZebras are（不是 is！）\n明天想练 I can 句型'}
+        className="w-full min-h-[420px] rounded-xl border border-gray-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100
+          p-4 text-sm leading-relaxed text-gray-700 resize-y outline-none transition-colors"
+        style={{ fontFamily: 'inherit' }}
+      />
+
+      {dirty && (
+        <p className="text-xs text-amber-500">● 有未保存的修改，记得点「保存笔记」</p>
+      )}
+    </div>
+  )
+}
+
 function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<number, Course> }) {
   const [course, setCourse] = useState<Course>(() => cache.get(meta.id) ?? meta)
   const [loadingDetail, setLoadingDetail] = useState(() => !cache.has(meta.id))
@@ -47,22 +152,25 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
   const [loadingTab, setLoadingTab] = useState(false)
   const iframeKey = `${course.id}-${tab}`
 
-  // 加载课程元数据 + 字幕 + 可用 tab 列表
+  // 加载课程元数据 + 字幕 + 可用 tab 列表 + 默认 report 内容（一次请求）
   useEffect(() => {
-    if (cache.has(meta.id)) {
-      setCourse(cache.get(meta.id)!)
-      setLoadingDetail(false)
-    } else {
+    if (!cache.has(meta.id)) {
       setLoadingDetail(true)
       getCourseDetail(meta.id).then(detail => {
         if (detail) { cache.set(meta.id, detail); setCourse(detail) }
         setLoadingDetail(false)
       })
+    } else {
+      setCourse(cache.get(meta.id)!)
+      setLoadingDetail(false)
     }
     setTabContent({})
     setAvailableTabs([])
     setTab('report')
-    getCourseReportTabs(meta.id).then(setAvailableTabs)
+    getCourseReportsInit(meta.id).then(({ tabs, reportHtml }) => {
+      setAvailableTabs(tabs)
+      if (reportHtml) setTabContent({ report: reportHtml })
+    })
   }, [meta.id, cache])
 
   // 按需加载当前 tab 内容
@@ -98,7 +206,7 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
 
   const canExport = tab === 'transcript'
     ? !!(course.transcriptTs || course.transcript)
-    : hasReport(tab)
+    : tab !== 'notes' && hasReport(tab)
 
   return (
     <div className="flex-1 min-w-0">
@@ -141,7 +249,8 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
       <div className="bg-white rounded-2xl shadow-sm border border-gray-50 overflow-hidden">
         <div className="flex border-b border-gray-100 overflow-x-auto">
           {TABS.map(t => {
-            const disabled = t.key !== 'transcript' && !hasReport(t.key)
+            const disabled = t.key !== 'transcript' && t.key !== 'notes' && !hasReport(t.key)
+            const hasNote = t.key === 'notes' && availableTabs.includes('notes')
             return (
               <button
                 key={t.key}
@@ -156,6 +265,7 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
                   }`}
               >
                 {t.icon} {t.label}
+                {hasNote && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" title="已有笔记" />}
               </button>
             )
           })}
@@ -182,6 +292,18 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
               transcript={course.transcript}
               basename={`${course.date}-${course.teacher}`}
             />
+          ) : tab === 'notes' ? (
+            loadingTab ? (
+              <div className="flex items-center justify-center py-16 text-gray-400 text-sm gap-2">
+                <span className="animate-spin">⟳</span> 加载笔记…
+              </div>
+            ) : (
+              <NotesView
+                courseId={course.id}
+                initial={tabContent['notes'] ?? ''}
+                onSaved={() => setAvailableTabs(prev => prev.includes('notes') ? prev : [...prev, 'notes'])}
+              />
+            )
           ) : loadingTab ? (
             <div className="flex items-center justify-center py-16 text-gray-400 text-sm gap-2">
               <span className="animate-spin">⟳</span> 加载报告…
