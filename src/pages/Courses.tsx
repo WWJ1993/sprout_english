@@ -211,7 +211,7 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
   return (
     <div className="flex-1 min-w-0">
       {/* Header */}
-      <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm border border-gray-50">
+      <div className="bg-white rounded-2xl p-5 mb-1 shadow-sm border border-gray-50">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <h2 className="text-base font-bold text-gray-800">{course.topic}</h2>
@@ -245,8 +245,9 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-50 overflow-hidden">
+      {/* Tabs —— 吸顶常驻：头部滑出视口后，tab 栏固定在顶栏正下方 */}
+      <div className="sticky top-14 z-30 py-2 bg-[#f5f7fa]">
+        <div className="bg-white rounded-2xl shadow-md border border-gray-50">
         <div className="flex border-b border-gray-100 overflow-x-auto">
           {TABS.map(t => {
             const disabled = t.key !== 'transcript' && t.key !== 'notes' && !hasReport(t.key)
@@ -280,9 +281,12 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
             </button>
           )}
         </div>
+        </div>
+      </div>
 
-        <div className="p-4">
-          {loadingDetail ? (
+      {/* 内容区 —— 滑动区域，内容从吸顶 tab 栏下方滑过 */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-50 p-4">
+        {loadingDetail ? (
             <div className="flex items-center justify-center py-16 text-gray-400 text-sm gap-2">
               <span className="animate-spin">⟳</span> 加载中…
             </div>
@@ -323,7 +327,6 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
             </div>
           )}
         </div>
-      </div>
     </div>
   )
 }
