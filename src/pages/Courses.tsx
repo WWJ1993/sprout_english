@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { marked } from 'marked'
 import { useStudent } from '../context/StudentContext'
 import { getCoursesByStudent, getCourseDetail, getCourseReport, getCourseReportsInit, saveCourse, saveCourseNote } from '../store/db'
 import { rateBg } from '../lib/weakness'
@@ -38,27 +39,28 @@ function UploadZone({ onUpload }: { onUpload: (file: File) => void }) {
   )
 }
 
-const NOTE_TEMPLATE = `🌟 今天我学会了：
+const NOTE_TEMPLATE = `## 🌟 今天我学会了
 
-  新单词：
-  新句型：
+- 新单词：
+- 新句型：
 
-⚠️ 我容易错的地方（复习后记下来）：
+## ⚠️ 我容易错的地方
 
-  1.
-  2.
+- [ ]
+- [ ]
 
-🎯 明天我想多练：
+## 🎯 明天我想多练
 
 `
 
-// 课堂笔记：孩子复习完报告后自己写，可反复编辑保存
+// 课堂笔记：孩子复习完报告后自己写，支持 Markdown，可反复编辑保存
 function NotesView({ courseId, initial, onSaved }: { courseId: number; initial: string; onSaved?: () => void }) {
   const [text, setText] = useState(initial)
   const [savedText, setSavedText] = useState(initial)
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [mode, setMode] = useState<'edit' | 'preview'>('edit')
   const dirty = text !== savedText
 
   // 切换课程时重置
@@ -93,6 +95,17 @@ function NotesView({ courseId, initial, onSaved }: { courseId: number; initial: 
           复习完上面的报告后，把学到的和容易错的记在这里 ✍️（随时可以修改再保存）
         </p>
         <div className="flex items-center gap-2">
+          {/* 编辑 / 预览切换 */}
+          <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
+            <button
+              onClick={() => setMode('edit')}
+              className={`px-2.5 py-1.5 transition-colors ${mode === 'edit' ? 'bg-indigo-500 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+            >✏️ 编辑</button>
+            <button
+              onClick={() => setMode('preview')}
+              className={`px-2.5 py-1.5 transition-colors ${mode === 'preview' ? 'bg-indigo-500 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+            >👁 预览</button>
+          </div>
           {empty && (
             <button
               onClick={() => setText(NOTE_TEMPLATE)}
@@ -120,20 +133,27 @@ function NotesView({ courseId, initial, onSaved }: { courseId: number; initial: 
         </p>
       )}
 
-      <textarea
-        value={text}
-        onChange={e => setText(e.target.value)}
-        onKeyDown={e => {
-          if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-            e.preventDefault()
-            if (dirty && !saving) handleSave()
-          }
-        }}
-        placeholder={'复习完写点笔记吧～\n\n例如：\n今天学会了 stork 是鹳\nZebras are（不是 is！）\n明天想练 I can 句型'}
-        className="w-full min-h-[420px] rounded-xl border border-gray-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100
-          p-4 text-sm leading-relaxed text-gray-700 resize-y outline-none transition-colors"
-        style={{ fontFamily: 'inherit' }}
-      />
+      {mode === 'edit' ? (
+        <textarea
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+              e.preventDefault()
+              if (dirty && !saving) handleSave()
+            }
+          }}
+          placeholder={'复习完写点笔记吧～支持 Markdown：\n\n## 今天我学会了\n- stork 是鹳\n\n## 我容易错的地方\n- Zebras **are**（不是 is！）\n\n## 明天我想多练\n- [ ] I can 句型'}
+          className="w-full min-h-[420px] rounded-xl border border-gray-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100
+            p-4 text-sm leading-relaxed text-gray-700 resize-y outline-none transition-colors font-mono"
+          style={{ fontFamily: 'inherit' }}
+        />
+      ) : (
+        <div
+          className="md-preview w-full min-h-[420px] rounded-xl border border-gray-100 bg-gray-50/60 p-5 text-sm leading-relaxed text-gray-700"
+          dangerouslySetInnerHTML={{ __html: marked.parse(text || '_还没有内容，切回「编辑」写点什么吧～_') }}
+        />
+      )}
 
       {dirty && (
         <p className="text-xs text-amber-500">● 有未保存的修改，记得点「保存笔记」</p>

@@ -38,3 +38,48 @@ mark {
   border-radius: 2px;
   padding: 0 2px;
 }
+
+/* 课堂笔记 Markdown 预览样式 */
+.md-preview h1, .md-preview h2, .md-preview h3 {
+  font-weight: 700;
+  margin: 0.8em 0 0.4em;
+  line-height: 1.4;
+}
+.md-preview h1 { font-size: 1.25rem; }
+.md-preview h2 { font-size: 1.1rem; color: #4338ca; }
+.md-preview h3 { font-size: 1rem; }
+.md-preview h1:first-child, .md-preview h2:first-child, .md-preview h3:first-child { margin-top: 0; }
+.md-preview p { margin: 0.4em 0; }
+.md-preview ul, .md-preview ol { margin: 0.4em 0; padding-left: 1.4em; }
+.md-preview ul { list-style: disc; }
+.md-preview ol { list-style: decimal; }
+.md-preview li { margin: 0.2em 0; }
+.md-preview input[type="checkbox"] { margin-right: 0.4em; accent-color: #6366f1; }
+.md-preview code {
+  background: #eef2ff;
+  border-radius: 4px;
+  padding: 0.1em 0.4em;
+  font-size: 0.9em;
+  color: #4338ca;
+}
+.md-preview pre {
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 0.8em 1em;
+  overflow-x: auto;
+  margin: 0.6em 0;
+}
+.md-preview pre code { background: none; padding: 0; }
+.md-preview blockquote {
+  border-left: 3px solid #c7d2fe;
+  padding-left: 0.8em;
+  margin: 0.6em 0;
+  color: #6b7280;
+}
+.md-preview strong { font-weight: 700; color: #111827; }
+.md-preview hr { border: none; border-top: 1px dashed #d1d5db; margin: 1em 0; }
+.md-preview a { color: #4f46e5; text-decoration: underline; }
+.md-preview table { border-collapse: collapse; margin: 0.6em 0; }
+.md-preview th, .md-preview td { border: 1px solid #e5e7eb; padding: 0.3em 0.7em; }
+.md-preview th { background: #f9fafb; }
+.md-preview em { color: #9ca3af; }
