@@ -16,7 +16,9 @@ supabase projects list || {
   exit 1
 }
 
-echo "──────── 1/4 建表 + 加 owner_id 列（迁移 01、02）────────"
+echo "──────── 1/4 建表 + 加 owner_id 列 + 开 RLS（迁移 01、02、03）────────"
+echo "注意：db push 会一次应用全部未应用的迁移，包含开 RLS 的 03。"
+echo "      若首次执行，跑完后现有数据的 owner_id 仍是 NULL —— 必须接着回填，否则数据不可见。"
 supabase db push --yes
 
 echo "──────── 2/4 部署 Edge Function ────────"
