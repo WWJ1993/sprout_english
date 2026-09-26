@@ -83,7 +83,7 @@ function renderBlock(b: Block): string {
       return `<div class="practice-group">` +
         `<div class="practice-title"><span class="icon">${esc(b.icon ?? '🎯')}</span><span>${esc(b.title)}</span>` +
         (b.tag ? `<span class="tag">${esc(b.tag)}</span>` : '') + `</div>` +
-        (b.tip ? `<div class="info-note">${esc(b.tip)}</div>` : '') +
+        (b.tip ? `<div class="info-note">${b.tip}</div>` : '') +
         b.pairs.map(p =>
           `<div class="qa-pair"><div class="q"><span class="label">Q</span>${esc(p.q)}` +
           (p.cn ? `<div class="cn">${esc(p.cn)}</div>` : '') + `</div>` +
