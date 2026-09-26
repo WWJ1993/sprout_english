@@ -48,6 +48,7 @@ const FN_ERRORS: Record<string, string> = {
   invite_used: '邀请码已被使用',
   invite_expired: '邀请码已过期',
   email_exists: '该邮箱已注册，请直接登录',
+  email_taken: '该邮箱已注册，请直接登录（或用忘记密码重置）',
   create_failed: '创建账号失败，请稍后重试',
   revoke_failed: '撤销失败',
   list_failed: '读取邀请码列表失败',
