@@ -56,6 +56,24 @@ const NOTE_TEMPLATE = `## 🌟 今天我学会了
 
 `
 
+// 图片压缩：最长边 ≤ 900px，转 JPEG（q0.72），返回 dataURL 直接内嵌进 Markdown。
+// 过大（>400KB）时降质重试一次，控制单图体积，避免笔记内容膨胀。
+async function compressImage(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file)
+  const maxSide = 900
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height))
+  const w = Math.round(bitmap.width * scale)
+  const h = Math.round(bitmap.height * scale)
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, w, h)
+  bitmap.close()
+  let url = canvas.toDataURL('image/jpeg', 0.72)
+  if (url.length > 400_000) url = canvas.toDataURL('image/jpeg', 0.55)
+  return url
+}
+
 // 课堂笔记：孩子复习完报告后自己写，支持 Markdown，可反复编辑保存
 function NotesView({ courseId, initial, onSaved }: { courseId: number; initial: string; onSaved?: () => void }) {
   const [text, setText] = useState(initial)
@@ -64,6 +82,9 @@ function NotesView({ courseId, initial, onSaved }: { courseId: number; initial: 
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<'edit' | 'preview'>('edit')
+  const [imgBusy, setImgBusy] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const fileRef = useRef<HTMLInputElement | null>(null)
   const dirty = text !== savedText
 
   // 切换课程时重置
@@ -90,6 +111,33 @@ function NotesView({ courseId, initial, onSaved }: { courseId: number; initial: 
   }
 
   const empty = !text.trim()
+
+  // 插入图片（粘贴或选图共用）：压缩后在光标处插入 Markdown 图片语法
+  async function handleImage(file: File) {
+    if (!file.type.startsWith('image/')) return
+    setImgBusy(true)
+    setError(null)
+    try {
+      const dataUrl = await compressImage(file)
+      const md = `![图片](${dataUrl})\n`
+      const ta = textareaRef.current
+      if (ta && mode === 'edit') {
+        const s = ta.selectionStart ?? text.length
+        const e = ta.selectionEnd ?? text.length
+        setText(text.slice(0, s) + md + text.slice(e))
+        requestAnimationFrame(() => {
+          ta.focus()
+          ta.selectionStart = ta.selectionEnd = s + md.length
+        })
+      } else {
+        setText(text + (text && !text.endsWith('\n') ? '\n' : '') + md)
+      }
+    } catch {
+      setError('图片处理失败，请换一张试试')
+    } finally {
+      setImgBusy(false)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -118,6 +166,26 @@ function NotesView({ courseId, initial, onSaved }: { courseId: number; initial: 
             </button>
           )}
           <button
+            onClick={() => fileRef.current?.click()}
+            disabled={imgBusy || mode !== 'edit'}
+            title="选择图片（也可以直接在编辑器里粘贴截图）"
+            className="text-xs text-indigo-600 hover:text-indigo-700 px-2 py-1 rounded-lg hover:bg-indigo-50 transition-colors
+              disabled:text-gray-300 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+          >
+            {imgBusy ? '⏳ 图片处理中…' : '📎 插图'}
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={e => {
+              const f = e.target.files?.[0]
+              if (f) handleImage(f)
+              e.target.value = ''
+            }}
+          />
+          <button
             onClick={handleSave}
             disabled={saving || !dirty}
             className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors
@@ -138,15 +206,23 @@ function NotesView({ courseId, initial, onSaved }: { courseId: number; initial: 
 
       {mode === 'edit' ? (
         <textarea
+          ref={textareaRef}
           value={text}
           onChange={e => setText(e.target.value)}
+          onPaste={e => {
+            const f = [...e.clipboardData.files].find(f => f.type.startsWith('image/'))
+            if (f) {
+              e.preventDefault()
+              handleImage(f)
+            }
+          }}
           onKeyDown={e => {
             if ((e.metaKey || e.ctrlKey) && e.key === 's') {
               e.preventDefault()
               if (dirty && !saving) handleSave()
             }
           }}
-          placeholder={'复习完写点笔记吧～支持 Markdown：\n\n## 今天我学会了\n- stork 是鹳\n\n## 我容易错的地方\n- Zebras **are**（不是 is！）\n\n## 明天我想多练\n- [ ] I can 句型'}
+          placeholder={'复习完写点笔记吧～支持 Markdown，可直接粘贴截图：\n\n## 今天我学会了\n- stork 是鹳\n\n## 我容易错的地方\n- Zebras **are**（不是 is！）\n\n## 明天我想多练\n- [ ] I can 句型'}
           className="w-full min-h-[420px] rounded-xl border border-gray-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100
             p-4 text-sm leading-relaxed text-gray-700 resize-y outline-none transition-colors font-mono"
           style={{ fontFamily: 'inherit' }}
