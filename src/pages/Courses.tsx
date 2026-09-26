@@ -5,6 +5,9 @@ import { getCoursesByStudent, getCourseDetail, getCourseReport, getCourseReports
 import { rateBg } from '../lib/weakness'
 import { exportReportPdf, exportTranscriptPdf } from '../lib/pdfExport'
 import TranscriptView from '../components/Transcript/TranscriptView'
+import { renderReport } from '../lib/reportTemplates'
+import type { ReportDoc } from '../lib/reportTemplates'
+import '../lib/report.css'
 import type { Course } from '../types'
 
 const TABS = [
@@ -162,6 +165,27 @@ function NotesView({ courseId, initial, onSaved }: { courseId: number; initial: 
   )
 }
 
+// 数据驱动渲染：report/vocab/qa/plan 存的是结构化 block JSON，这里用共享模板渲染。
+// 兼容旧版整页 HTML（解析失败则走 iframe 兜底）。
+function ReportRenderer({ html }: { html: string }) {
+  let doc: ReportDoc | null = null
+  try {
+    const parsed = JSON.parse(html)
+    if (parsed && Array.isArray(parsed.blocks)) doc = parsed as ReportDoc
+  } catch {
+    doc = null
+  }
+  if (doc) {
+    return <div className="report-body" dangerouslySetInnerHTML={{ __html: renderReport(doc) }} />
+  }
+  return (
+    <iframe
+      className="report-iframe"
+      src={URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }))}
+    />
+  )
+}
+
 function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<number, Course> }) {
   const [course, setCourse] = useState<Course>(() => cache.get(meta.id) ?? meta)
   const [loadingDetail, setLoadingDetail] = useState(() => !cache.has(meta.id))
@@ -170,7 +194,6 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
   const [availableTabs, setAvailableTabs] = useState<string[]>([])
   const [tabContent, setTabContent] = useState<Record<string, string>>({})
   const [loadingTab, setLoadingTab] = useState(false)
-  const iframeKey = `${course.id}-${tab}`
 
   // 加载课程元数据 + 字幕 + 可用 tab 列表 + 默认 report 内容（一次请求）
   useEffect(() => {
@@ -333,13 +356,7 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
               <span className="animate-spin">⟳</span> 加载报告…
             </div>
           ) : currentHtml ? (
-            <iframe
-              key={iframeKey}
-              className="report-iframe"
-              src={URL.createObjectURL(
-                new Blob([currentHtml], { type: 'text/html;charset=utf-8' })
-              )}
-            />
+            <ReportRenderer html={currentHtml} />
           ) : (
             <div className="flex flex-col items-center justify-center py-16 text-gray-400 gap-2">
               <span className="text-4xl">📭</span>

@@ -1,0 +1,158 @@
+/* ============================================================
+   Sprout English — Shared Report Styles (namespaced under .report-body)
+   Rendered from structured block JSON. One source of truth.
+   ============================================================ */
+.report-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: #2c3e50; line-height: 1.8; }
+.report-body * { box-sizing: border-box; }
+
+/* Header */
+.report-body .header {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
+  color: white; border-radius: 16px; padding: 28px 32px; margin-bottom: 20px;
+}
+.report-body .header h1 { font-size: 22px; margin-bottom: 6px; }
+.report-body .header .sub { font-size: 13px; opacity: 0.92; }
+
+/* Cards */
+.report-body .card {
+  background: white; border-radius: 14px; padding: 22px 26px;
+  margin-bottom: 18px; box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+}
+.report-body .card h2 { font-size: 18px; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 2px solid #f0f0f0; }
+.report-body .card h3 { font-size: 15px; margin: 16px 0 8px; color: #4338ca; }
+.report-body .card h3:first-child { margin-top: 0; }
+
+/* Stats Row */
+.report-body .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.report-body .stat-box {
+  background: linear-gradient(135deg, #667eea15, #764ba215);
+  border-radius: 12px; padding: 14px; text-align: center; border: 1px solid #e8eaf0;
+}
+.report-body .stat-box .num { font-size: 24px; font-weight: 700; color: #4338ca; }
+.report-body .stat-box .label { font-size: 12px; color: #888; margin-top: 4px; }
+
+/* Tables */
+.report-body .table-wrap { overflow-x: auto; }
+.report-body table { width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 12px; }
+.report-body table th {
+  background: #f8f9fb; padding: 9px 12px; text-align: left; font-weight: 600; color: #666; font-size: 13px; border-bottom: 2px solid #e8eaf0;
+}
+.report-body table td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+.report-body table tr:last-child td { border-bottom: none; }
+.report-body table .en { font-weight: 600; color: #2c3e50; }
+.report-body table .cn { color: #666; }
+.report-body table .example { color: #888; font-size: 13px; font-style: italic; }
+
+/* Vocab chips */
+.report-body .chip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+.report-body .chip { background: #f8f9fb; border-radius: 8px; padding: 10px 14px; border-left: 3px solid #6366f1; }
+.report-body .chip .en { font-weight: 600; font-size: 15px; color: #2c3e50; }
+.report-body .chip .cn { font-size: 13px; color: #888; }
+.report-body .chip .ex { font-size: 12px; color: #aaa; margin-top: 2px; }
+
+/* Pattern block */
+.report-body .pattern-block { border: 1px solid #e8eaf0; border-radius: 12px; overflow: hidden; margin-bottom: 14px; }
+.report-body .pattern-header { padding: 12px 18px; font-weight: 600; font-size: 15px; display: flex; justify-content: space-between; align-items: center; }
+.report-body .pattern-body { padding: 14px 18px; background: #fafbfc; }
+.report-body .pattern-body .formula { font-size: 15px; font-weight: 600; margin-bottom: 6px; font-family: "SF Mono", "Fira Code", monospace; }
+.report-body .pattern-body .usage { font-size: 13px; color: #888; margin-bottom: 8px; }
+.report-body .pattern-body .examples { display: flex; flex-wrap: wrap; gap: 6px; }
+.report-body .ex-chip { background: white; border: 1px solid #e0e0e0; border-radius: 6px; padding: 4px 12px; font-size: 13px; color: #444; }
+.report-body .ex-chip .hl { color: #6366f1; font-weight: 600; }
+
+/* Pattern header color variants */
+.report-body .tag-blue .pattern-header { background: #eef2ff; color: #4338ca; }
+.report-body .tag-green .pattern-header { background: #ecfdf5; color: #059669; }
+.report-body .tag-orange .pattern-header { background: #fff7ed; color: #c2410c; }
+.report-body .tag-purple .pattern-header { background: #faf5ff; color: #7c3aed; }
+.report-body .tag-red .pattern-header { background: #fef2f2; color: #dc2626; }
+.report-body .tag-cyan .pattern-header { background: #ecfeff; color: #0891b2; }
+.report-body .tag-pink .pattern-header { background: #fdf2f8; color: #db2777; }
+.report-body .tag-amber .pattern-header { background: #fffbeb; color: #b45309; }
+
+/* Frequency badges */
+.report-body .freq { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+.report-body .freq-high { background: #dcfce7; color: #15803d; }
+.report-body .freq-mid { background: #fef3c7; color: #b45309; }
+.report-body .freq-low { background: #f1f5f9; color: #64748b; }
+
+/* Notes */
+.report-body .grammar-note { background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 12px 16px; margin: 10px 0; font-size: 14px; }
+.report-body .grammar-note strong { color: #b45309; }
+.report-body .info-note { background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 10px; padding: 12px 16px; margin: 10px 0; font-size: 14px; }
+.report-body .info-note strong { color: #4338ca; }
+
+/* Q&A */
+.report-body .qa-group { margin-bottom: 14px; }
+.report-body .qa-row { display: flex; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #f5f5f5; }
+.report-body .qa-row:last-child { border-bottom: none; }
+.report-body .qa-num { min-width: 28px; font-weight: 600; color: #999; font-size: 13px; padding-top: 2px; }
+.report-body .qa-bubble { flex: 1; border-radius: 10px; padding: 8px 14px; font-size: 13px; }
+.report-body .qa-bubble.teacher { background: #eef2ff; }
+.report-body .qa-bubble.student { background: #f0fdf4; }
+.report-body .qa-bubble .role { font-size: 11px; font-weight: 600; margin-bottom: 2px; }
+.report-body .qa-bubble.teacher .role { color: #6366f1; }
+.report-body .qa-bubble.student .role { color: #059669; }
+.report-body .qa-bubble .text { font-size: 13px; color: #333; }
+.report-body .qa-bubble .trans { font-size: 12px; color: #999; margin-top: 2px; }
+.report-body .qa-correct { border-left: 3px solid #22c55e; }
+.report-body .qa-wrong { border-left: 3px solid #ef4444; background: #fef2f2; }
+.report-body .qa-partial { border-left: 3px solid #f59e0b; background: #fffbeb; }
+
+/* Review card grid */
+.report-body .review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.report-body .review-card { border-radius: 10px; padding: 16px; }
+.report-body .review-card h4 { font-weight: 700; margin-bottom: 8px; font-size: 14px; }
+.report-body .review-card ul { font-size: 14px; padding-left: 20px; color: #444; }
+.report-body .review-card.must { background: #fef2f2; border-left: 3px solid #ef4444; }
+.report-body .review-card.must h4 { color: #dc2626; }
+.report-body .review-card.improve { background: #fffbeb; border-left: 3px solid #f59e0b; }
+.report-body .review-card.improve h4 { color: #b45309; }
+.report-body .review-card.extend { background: #f0fdf4; border-left: 3px solid #22c55e; }
+.report-body .review-card.extend h4 { color: #15803d; }
+
+/* Timeline */
+.report-body .timeline { position: relative; padding-left: 24px; }
+.report-body .timeline::before { content: ""; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: #e0e0e0; }
+.report-body .tl-item { position: relative; margin-bottom: 14px; font-size: 14px; }
+.report-body .tl-item::before { content: ""; position: absolute; left: -20px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: #6366f1; }
+.report-body .tl-time { font-size: 12px; color: #999; }
+.report-body .tl-text { color: #444; margin-top: 2px; }
+
+/* Practice */
+.report-body .practice-group { margin-bottom: 24px; }
+.report-body .practice-title { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 700; margin-bottom: 12px; padding: 10px 16px; border-radius: 10px; background: #f5f3ff; }
+.report-body .practice-title .icon { font-size: 20px; }
+.report-body .practice-title .tag { font-size: 12px; padding: 3px 10px; border-radius: 8px; font-weight: 600; margin-left: auto; background: #ede9fe; color: #6d28d9; }
+.report-body .qa-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; padding: 12px 16px; background: #f9fafb; border-radius: 10px; border-left: 3px solid #6366f1; }
+.report-body .qa-pair .q, .report-body .qa-pair .a { font-size: 14px; }
+.report-body .qa-pair .label { font-size: 11px; color: #6366f1; font-weight: 700; margin-right: 6px; }
+.report-body .qa-pair .a .label { color: #059669; }
+.report-body .qa-pair .en { font-weight: 600; color: #2c3e50; }
+.report-body .qa-pair .cn { font-size: 12px; color: #999; margin-top: 2px; }
+.report-body .qa-pair .alt { font-size: 12px; color: #888; margin-top: 4px; }
+.report-body .qa-pair .alt::before { content: "↳ 还可以说: "; color: #b0b0b0; }
+
+.report-body .dialog-box { background: #f0f4ff; border-radius: 12px; padding: 16px 20px; margin-bottom: 12px; border: 1px solid #d6e0ff; }
+.report-body .dialog-box .scene { font-size: 13px; color: #6366f1; font-weight: 600; margin-bottom: 8px; }
+.report-body .dialog-line { font-size: 14px; margin-bottom: 6px; }
+.report-body .dialog-line .who { font-weight: 700; margin-right: 6px; }
+.report-body .dialog-line .who.p { color: #6366f1; }
+.report-body .dialog-line .who.l { color: #059669; }
+.report-body .dialog-line .cn { font-size: 12px; color: #aaa; }
+
+.report-body .daily-checklist { background: #f0fdf4; border-radius: 12px; padding: 16px 20px; margin-top: 12px; border: 1px solid #bbf7d0; }
+.report-body .daily-checklist h4 { color: #15803d; margin-bottom: 8px; }
+.report-body .daily-checklist .item { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; font-size: 14px; }
+.report-body .daily-checklist .checkbox { width: 16px; height: 16px; border: 2px solid #86efac; border-radius: 4px; flex-shrink: 0; margin-top: 3px; }
+
+/* Divider + footer */
+.report-body .divider { height: 1px; background: linear-gradient(to right, transparent, #e0e0e0, transparent); margin: 20px 0; }
+.report-body .footer { text-align: center; color: #aaa; font-size: 13px; padding: 16px 0; }
+
+@media (max-width: 700px) {
+  .report-body .stats-row { grid-template-columns: 1fr 1fr; }
+  .report-body .chip-grid { grid-template-columns: 1fr; }
+  .report-body .review-grid { grid-template-columns: 1fr; }
+  .report-body .qa-pair { grid-template-columns: 1fr; }
+}
