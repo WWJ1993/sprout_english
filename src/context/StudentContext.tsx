@@ -6,6 +6,7 @@ import React, {
   useCallback,
 } from 'react'
 import type { Student } from '../types'
+import { useAuth } from './AuthContext'
 import {
   getAllStudents,
   saveStudent,
@@ -32,6 +33,9 @@ interface StudentCtx {
 const Ctx = createContext<StudentCtx>({} as StudentCtx)
 
 export function StudentProvider({ children }: { children: React.ReactNode }) {
+  // 关键时序：必须等 uid 就绪后再拉数据 / 建种子，否则会写入 owner_id 为空的行
+  const { user } = useAuth()
+  const uid = user?.id ?? null
   const [students, setStudents] = useState<Student[]>([])
   const [currentId, setCurrentId] = useState<string>(
     () => localStorage.getItem(CURRENT_STUDENT_KEY) || ''
@@ -45,6 +49,7 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
+    if (!uid) return // 未就绪：不要拉数据、不要建种子
     async function boot() {
       const t0 = performance.now()
       console.log('[boot] start')
@@ -93,7 +98,7 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
       console.log(`[boot] done — ${(performance.now() - t0).toFixed(0)}ms total`)
     }
     boot()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [uid]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const setCurrentStudentId = useCallback((id: string) => {
     setCurrentId(id)

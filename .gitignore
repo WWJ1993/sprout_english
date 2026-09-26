@@ -29,3 +29,9 @@ dist-ssr
 
 # temp scripts
 wb-screenshot*.mjs
+
+# supabase cli local state
+supabase/.temp
+supabase/.branches
+supabase/.ignore
+.env.service_role

@@ -1,10 +1,13 @@
-import { createClient } from '@supabase/supabase-js'
 import type { Course, Student, PracticeRecord } from '../types'
+import { supabase } from '../lib/supabase'
 
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL as string,
-  import.meta.env.VITE_SUPABASE_ANON_KEY as string
-)
+// 数据归属：所有写入都显式带上当前登录用户 UID。
+// 数据库侧同时有 `owner_id uuid default auth.uid()` 兜底，双保险。
+// 开启 RLS 后，owner_id 不匹配的行会被静默过滤（不报错），所以这里必须可靠。
+async function ownerId(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession()
+  return data.session?.user?.id ?? null
+}
 
 // ---- row mappers ----
 
@@ -81,6 +84,7 @@ export async function saveStudent(s: Student): Promise<void> {
     name: s.name,
     age: s.age,
     created_at: s.createdAt,
+    owner_id: await ownerId(),
   })
   if (error) throw error
 }
@@ -171,7 +175,7 @@ export async function saveCourse(c: Course): Promise<void> {
   const row = courseToRow(c)
   const { reports, ...courseRow } = row as typeof row & { reports?: unknown }
   void reports
-  const { error } = await supabase.from('courses').upsert(courseRow)
+  const { error } = await supabase.from('courses').upsert({ ...courseRow, owner_id: await ownerId() })
   if (error) throw error
   // save reports to separate table
   const reportEntries = Object.entries(c.reports ?? {}).filter(([, v]) => v)
@@ -210,6 +214,7 @@ export async function savePractice(r: PracticeRecord): Promise<void> {
     correct: r.correct,
     point: r.point,
     mode: r.mode,
+    owner_id: await ownerId(),
   })
   if (error) throw error
 }

@@ -1,5 +1,7 @@
-import { Link, useLocation } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useStudent } from '../../context/StudentContext'
+import { useAuth } from '../../context/AuthContext'
 
 const NAV = [
   { to: '/', label: '看板', icon: '📊' },
@@ -10,7 +12,23 @@ const NAV = [
 
 export default function TopBar() {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const { students, currentStudent, setCurrentStudentId } = useStudent()
+  const { user, isAdmin, signOut } = useAuth()
+  const [open, setOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onDown(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+
+  const email = user?.email ?? ''
+  const initial = (email[0] ?? '?').toUpperCase()
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm">
@@ -58,6 +76,56 @@ export default function TopBar() {
             ))}
           </select>
         )}
+
+        {/* User menu */}
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setOpen(v => !v)}
+            className="flex items-center gap-1.5 pl-1 pr-1.5 py-1 rounded-full border border-gray-200
+              hover:bg-gray-50 transition-colors"
+            title={email}
+          >
+            <span className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold
+              flex items-center justify-center">
+              {initial}
+            </span>
+            <span className="hidden md:block text-xs text-gray-500 max-w-[140px] truncate">
+              {email}
+            </span>
+            {isAdmin && (
+              <span className="hidden md:block px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 text-[10px]">
+                管理员
+              </span>
+            )}
+          </button>
+
+          {open && (
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl border border-gray-100
+              shadow-lg py-1 text-sm z-50">
+              <div className="px-3 py-2 text-xs text-gray-400 border-b border-gray-50 break-all">
+                {email}
+              </div>
+              <button
+                onClick={() => {
+                  setOpen(false)
+                  navigate('/settings')
+                }}
+                className="w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50"
+              >
+                设置
+              </button>
+              <button
+                onClick={async () => {
+                  setOpen(false)
+                  await signOut()
+                }}
+                className="w-full text-left px-3 py-2 text-red-600 hover:bg-red-50"
+              >
+                退出登录
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   )
