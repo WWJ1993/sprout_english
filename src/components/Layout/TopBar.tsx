@@ -105,6 +105,17 @@ export default function TopBar() {
               <div className="px-3 py-2 text-xs text-gray-400 border-b border-gray-50 break-all">
                 {email}
               </div>
+              {isAdmin && (
+                <button
+                  onClick={() => {
+                    setOpen(false)
+                    navigate('/admin')
+                  }}
+                  className="w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50"
+                >
+                  后台管理
+                </button>
+              )}
               <button
                 onClick={() => {
                   setOpen(false)

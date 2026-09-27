@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import type { Identity, InviteCode } from '../context/AuthContext'
+import type { Identity } from '../context/AuthContext'
 
 const PROVIDER_LABEL: Record<string, string> = {
   email: '邮箱密码',
@@ -57,10 +58,6 @@ export default function Settings() {
     unlinkIdentity,
     updateEmail,
     updatePassword,
-    adminResetPassword,
-    adminCreateInvites,
-    adminListInvites,
-    adminRevokeInvite,
   } = useAuth()
 
   const [identities, setIdentities] = useState<Identity[]>([])
@@ -72,13 +69,6 @@ export default function Settings() {
   const [pwd, setPwd] = useState('')
   const [pwd2, setPwd2] = useState('')
 
-  // 管理员
-  const [targetEmail, setTargetEmail] = useState('')
-  const [newPwd, setNewPwd] = useState('')
-  const [inviteCount, setInviteCount] = useState(1)
-  const [inviteDays, setInviteDays] = useState(30)
-  const [codes, setCodes] = useState<InviteCode[]>([])
-
   const reload = useCallback(async () => {
     setIdentities(await listIdentities())
   }, [listIdentities])
@@ -86,12 +76,6 @@ export default function Settings() {
   useEffect(() => {
     reload()
   }, [reload])
-
-  useEffect(() => {
-    if (isAdmin) {
-      adminListInvites().then(setCodes).catch(() => setCodes([]))
-    }
-  }, [isAdmin, adminListInvites])
 
   async function run(fn: () => Promise<{ error: string | null }>, okText: string) {
     setBusy(true)
@@ -261,158 +245,17 @@ export default function Settings() {
       </Card>
 
       {isAdmin && (
-        <Card title="管理员 · 重置用户密码" desc="邮件不可用时的兜底通道，操作会记入审计日志">
-          <div className="space-y-2">
-            <input
-              type="email"
-              value={targetEmail}
-              onChange={e => setTargetEmail(e.target.value)}
-              placeholder="目标用户邮箱"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg
-                focus:outline-none focus:ring-2 focus:ring-indigo-300"
-            />
-            <input
-              type="text"
-              value={newPwd}
-              onChange={e => setNewPwd(e.target.value)}
-              placeholder="设置的新密码（≥8 位，含字母和数字）"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg
-                focus:outline-none focus:ring-2 focus:ring-indigo-300"
-            />
-            <button
-              disabled={busy || !targetEmail.includes('@') || newPwd.length < 8}
-              onClick={() =>
-                run(
-                  () => adminResetPassword(targetEmail.trim(), newPwd),
-                  '密码已重置'
-                ).then(() => {
-                  setTargetEmail('')
-                  setNewPwd('')
-                })
-              }
-              className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium
-                hover:bg-red-700 disabled:opacity-50"
-            >
-              重置密码
-            </button>
-          </div>
-        </Card>
-      )}
-
-      {isAdmin && (
-        <Card title="管理员 · 邀请码" desc="邀请码一次性使用，可用于注册新账号">
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="text-xs text-gray-500">
-              数量
-              <input
-                type="number"
-                min={1}
-                max={50}
-                value={inviteCount}
-                onChange={e => setInviteCount(Number(e.target.value))}
-                className="ml-1.5 w-16 px-2 py-1.5 text-sm border border-gray-200 rounded-lg"
-              />
-            </label>
-            <label className="text-xs text-gray-500">
-              有效期（天）
-              <input
-                type="number"
-                min={1}
-                max={365}
-                value={inviteDays}
-                onChange={e => setInviteDays(Number(e.target.value))}
-                className="ml-1.5 w-20 px-2 py-1.5 text-sm border border-gray-200 rounded-lg"
-              />
-            </label>
-            <button
-              disabled={busy}
-              onClick={async () => {
-                setBusy(true)
-                setMsg(null)
-                const { error, codes: created } = await adminCreateInvites(inviteCount, inviteDays)
-                if (error) setMsg({ text: error, kind: 'err' })
-                else {
-                  setMsg({ text: `已生成 ${created.length} 个邀请码`, kind: 'ok' })
-                  setCodes(await adminListInvites())
-                }
-                setBusy(false)
-              }}
-              className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium
-                hover:bg-indigo-700 disabled:opacity-50"
-            >
-              生成
-            </button>
-          </div>
-
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-left text-gray-400 border-b border-gray-100">
-                  <th className="py-1.5 font-medium">邀请码</th>
-                  <th className="py-1.5 font-medium">创建时间</th>
-                  <th className="py-1.5 font-medium">有效期至</th>
-                  <th className="py-1.5 font-medium">状态</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {codes.map(c => {
-                  const used = !!c.used_by
-                  const expired = c.expires_at ? new Date(c.expires_at) < new Date() : false
-                  return (
-                    <tr key={c.code} className="border-b border-gray-50 last:border-0">
-                      <td className="py-1.5 font-mono text-gray-700">{c.code}</td>
-                      <td className="py-1.5 text-gray-400">
-                        {new Date(c.created_at).toLocaleDateString('zh-CN')}
-                      </td>
-                      <td className="py-1.5 text-gray-400">
-                        {c.expires_at
-                          ? new Date(c.expires_at).toLocaleDateString('zh-CN')
-                          : '—'}
-                      </td>
-                      <td className="py-1.5">
-                        {used ? (
-                          <span className="text-gray-400">已使用</span>
-                        ) : expired ? (
-                          <span className="text-amber-600">已过期</span>
-                        ) : (
-                          <span className="text-emerald-600">可用</span>
-                        )}
-                      </td>
-                      <td className="py-1.5 text-right">
-                        {!used && (
-                          <button
-                            disabled={busy}
-                            onClick={async () => {
-                              setBusy(true)
-                              const { error } = await adminRevokeInvite(c.code)
-                              setMsg(
-                                error
-                                  ? { text: error, kind: 'err' }
-                                  : { text: `已撤销 ${c.code}`, kind: 'ok' }
-                              )
-                              setCodes(await adminListInvites())
-                              setBusy(false)
-                            }}
-                            className="text-gray-400 hover:text-red-600"
-                          >
-                            撤销
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-                {!codes.length && (
-                  <tr>
-                    <td colSpan={5} className="py-3 text-center text-gray-300">
-                      暂无邀请码
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+        <Card title="管理员" desc="用户管理、邀请码与审计日志已移至后台">
+          <Link
+            to="/admin"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600
+              text-white text-sm font-medium hover:bg-indigo-700"
+          >
+            进入后台管理
+          </Link>
+          <p className="mt-2 text-xs text-gray-400">
+            可查看全部用户、重置他人密码、管理邀请码、查阅审计日志。
+          </p>
         </Card>
       )}
     </div>

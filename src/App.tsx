@@ -8,6 +8,7 @@ import Courses from './pages/Courses'
 import Practice from './pages/Practice'
 import Students from './pages/Students'
 import Settings from './pages/Settings'
+import Admin from './pages/Admin'
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
                   <Route path="/practice" element={<Practice />} />
                   <Route path="/students" element={<Students />} />
                   <Route path="/settings" element={<Settings />} />
+                  <Route path="/admin" element={<Admin />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </main>

@@ -34,6 +34,18 @@ export interface InviteCode {
   used_at: string | null
 }
 
+export interface AdminUser {
+  id: string
+  email: string
+  display_name: string | null
+  is_admin: boolean
+  created_at: string
+  last_sign_in_at: string | null
+  email_confirmed: boolean
+  courses: number
+  practice: number
+}
+
 export interface AuthResult {
   error: string | null
 }
@@ -133,6 +145,7 @@ interface AuthCtx {
   adminCreateInvites: (count: number, days: number) => Promise<{ error: string | null; codes: InviteCode[] }>
   adminListInvites: () => Promise<InviteCode[]>
   adminRevokeInvite: (code: string) => Promise<AuthResult>
+  adminListUsers: () => Promise<{ error: string | null; users: AdminUser[] }>
 }
 
 const Ctx = createContext<AuthCtx>({} as AuthCtx)
@@ -286,6 +299,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     []
   )
 
+  const adminListUsers = useCallback(async (): Promise<{
+    error: string | null
+    users: AdminUser[]
+  }> => {
+    const { data, error } = await callFn<{ users: AdminUser[] }>('admin-users', {})
+    return { error, users: data?.users ?? [] }
+  }, [])
+
   const value = useMemo<AuthCtx>(
     () => ({
       session,
@@ -308,6 +329,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       adminCreateInvites,
       adminListInvites,
       adminRevokeInvite,
+      adminListUsers,
     }),
     [
       session,
@@ -326,6 +348,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       adminCreateInvites,
       adminListInvites,
       adminRevokeInvite,
+      adminListUsers,
     ]
   )
 
