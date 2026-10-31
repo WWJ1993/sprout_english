@@ -74,8 +74,11 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
         students = [mera]
       }
 
-      // 加载种子数据（仅首次）
-      if (!alreadySeeded || count === 0) {
+      // 加载种子数据：仅当数据库里确实没有课程时才导入。
+      // 注意：不能仅依赖 localStorage 标记——fresh 浏览器（无标记）即使 DB 已有课程也会重导全部种子，
+      // 导致首屏额外 8~9s。改为以 count===0 为唯一触发条件，避免反复重导。
+      const needSeed = !alreadySeeded && count === 0
+      if (needSeed) {
         try {
           const resp = await fetch('./courses.json')
           if (resp.ok) {
