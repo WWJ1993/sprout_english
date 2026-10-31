@@ -44,9 +44,14 @@
 .report-body table .example { color: #888; font-size: 13px; font-style: italic; }
 
 /* Vocab chips */
+.report-body .vocab-group { margin-bottom: 16px; }
+.report-body .vocab-title { font-size: 15px; margin: 14px 0 8px; color: #4338ca; font-weight: 600; }
 .report-body .chip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
 .report-body .chip { background: #f8f9fb; border-radius: 8px; padding: 10px 14px; border-left: 3px solid #6366f1; }
-.report-body .chip .en { font-weight: 600; font-size: 15px; color: #2c3e50; }
+.report-body .chip .en { font-weight: 600; font-size: 15px; color: #2c3e50; display: flex; align-items: center; gap: 6px; }
+.report-body .chip .speaker { cursor: pointer; font-size: 13px; opacity: 0.9; transition: all 0.15s; user-select: none; margin-left: 6px; background: #eef0ff; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.report-body .chip .speaker:hover { opacity: 1; background: #e0e3ff; transform: scale(1.12); }
+.report-body .chip .ph { font-size: 12px; color: #9a6cff; font-family: "SF Mono", "Fira Code", monospace; margin-top: 2px; }
 .report-body .chip .cn { font-size: 13px; color: #888; }
 .report-body .chip .ex { font-size: 12px; color: #aaa; margin-top: 2px; }
 
@@ -149,6 +154,49 @@
 /* Divider + footer */
 .report-body .divider { height: 1px; background: linear-gradient(to right, transparent, #e0e0e0, transparent); margin: 20px 0; }
 .report-body .footer { text-align: center; color: #aaa; font-size: 13px; padding: 16px 0; }
+
+/* ===== 划词查词浮窗（百度翻译风格，portal 到 body，全局样式）===== */
+.wl-popup {
+  position: fixed;
+  z-index: 9999;
+  min-width: 180px;
+  max-width: 280px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(17, 24, 39, 0.18);
+  border: 1px solid #eef0f4;
+  padding: 12px 14px 10px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #1f2937;
+  animation: wl-fade 0.12s ease-out;
+}
+@keyframes wl-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.wl-popup .wl-close {
+  position: absolute; top: 4px; right: 6px;
+  border: none; background: transparent; color: #b6bcc7;
+  font-size: 18px; line-height: 1; cursor: pointer; padding: 2px 4px;
+}
+.wl-popup .wl-close:hover { color: #6b7280; }
+.wl-popup .wl-word {
+  font-size: 18px; font-weight: 700; color: #111827;
+  margin: 0 18px 2px 0; word-break: break-word;
+}
+.wl-popup .wl-ph {
+  font-size: 13px; color: #8b5cf6; font-family: "SF Mono", "Fira Code", monospace;
+  margin-bottom: 2px;
+}
+.wl-popup .wl-cn { font-size: 14px; color: #4b5563; line-height: 1.5; }
+.wl-popup .wl-hint { font-size: 13px; color: #9ca3af; margin: 4px 0 6px; }
+.wl-popup .wl-speak {
+  margin-top: 8px; width: 100%;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border: none; border-radius: 8px; padding: 7px 12px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: filter 0.15s;
+}
+.wl-popup .wl-speak:hover { filter: brightness(1.06); }
+.wl-popup .wl-speak:disabled { opacity: 0.65; cursor: default; }
 
 @media (max-width: 700px) {
   .report-body .stats-row { grid-template-columns: 1fr 1fr; }

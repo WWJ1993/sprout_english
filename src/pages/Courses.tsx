@@ -7,6 +7,7 @@ import { exportReportPdf, exportTranscriptPdf } from '../lib/pdfExport'
 import TranscriptView from '../components/Transcript/TranscriptView'
 import { renderReport } from '../lib/reportTemplates'
 import type { ReportDoc } from '../lib/reportTemplates'
+import { useWordLookup } from '../components/WordLookup'
 import '../lib/report.css'
 import type { Course } from '../types'
 
@@ -244,6 +245,8 @@ function NotesView({ courseId, initial, onSaved }: { courseId: number; initial: 
 // 数据驱动渲染：report/vocab/qa/plan 存的是结构化 block JSON，这里用共享模板渲染。
 // 兼容旧版整页 HTML（解析失败则走 iframe 兜底）。
 function ReportRenderer({ html }: { html: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const { popup } = useWordLookup(ref)
   let doc: ReportDoc | null = null
   try {
     const parsed = JSON.parse(html)
@@ -252,7 +255,12 @@ function ReportRenderer({ html }: { html: string }) {
     doc = null
   }
   if (doc) {
-    return <div className="report-body" dangerouslySetInnerHTML={{ __html: renderReport(doc) }} />
+    return (
+      <>
+        <div ref={ref} className="report-body" dangerouslySetInnerHTML={{ __html: renderReport(doc) }} />
+        {popup}
+      </>
+    )
   }
   return (
     <iframe

@@ -12,7 +12,7 @@ export type Block =
   | { t: 'prose'; html: string }
   | { t: 'note'; kind: 'grammar' | 'info'; html: string }
   | { t: 'pattern'; title: string; tag?: string; freq?: 'high' | 'mid' | 'low'; formula: string; usage?: string; examples: string[] }
-  | { t: 'vocabGroup'; title: string; words: { en: string; cn: string; ex?: string }[] }
+  | { t: 'vocabGroup'; title: string; words: { en: string; cn: string; ph?: string; ex?: string }[] }
   | { t: 'qaGroup'; title: string; items: { n: number; correct?: 'correct' | 'wrong' | 'partial'; lines: { role?: 'teacher' | 'student'; text: string; trans?: string }[] }[] }
   | { t: 'reviewGrid'; cards: { cls: 'must' | 'improve' | 'extend'; title: string; items: string[] }[] }
   | { t: 'practice'; icon?: string; title: string; tag?: string; tip?: string; pairs: { q: string; a: string; alt?: string; cn?: string }[]; dialog?: { scene: string; lines: { who: 'p' | 'l'; text: string; cn?: string }[] }; checklist: string[] }
@@ -59,10 +59,12 @@ function renderBlock(b: Block): string {
         `<div class="examples">${b.examples.map(e => `<span class="ex-chip">${e}</span>`).join('')}</div>` +
         `</div></div>`
     case 'vocabGroup':
-      return `<div class="chip-grid">${b.words
-        .map(w => `<div class="chip"><div class="en">${esc(w.en)}</div><div class="cn">${esc(w.cn)}</div>` +
+      return `<div class="vocab-group"><h3 class="vocab-title">${esc(b.title)}</h3><div class="chip-grid">${b.words
+        .map(w => `<div class="chip"><div class="en">${esc(w.en)}<span class="speaker" data-speak="${esc(w.en)}" title="朗读">🔊</span></div>` +
+          (w.ph ? `<div class="ph">/${esc(w.ph)}/</div>` : '') +
+          `<div class="cn">${esc(w.cn)}</div>` +
           (w.ex ? `<div class="ex">${esc(w.ex)}</div>` : '') + `</div>`)
-        .join('')}</div>`
+        .join('')}</div></div>`
     case 'qaGroup':
       return `<div class="qa-group"><h3>${esc(b.title)}</h3>` +
         b.items.map(it => {
