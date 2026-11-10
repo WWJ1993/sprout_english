@@ -68,14 +68,34 @@ function timed<T>(label: string, fn: () => Promise<T>): Promise<T> {
   })
 }
 
+// Supabase 免费项目空闲会被暂停，首次访问需唤醒（耗时 10~20s），
+// 期间请求可能连接重置/超时。这里对读操作加重试，让页面在数据库唤醒过程中自动恢复，
+// 而不是永久卡在「加载中…」。
+async function withRetry<T>(label: string, fn: () => Promise<T>, tries = 4): Promise<T> {
+  let lastErr: unknown
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fn()
+    } catch (e) {
+      lastErr = e
+      const wait = 1500 * (i + 1)
+      console.warn(`[db] ${label} 第${i + 1}次失败，将在 ${wait}ms 后重试…`, e)
+      await new Promise(r => setTimeout(r, wait))
+    }
+  }
+  throw lastErr
+}
+
 // ---- Students ----
 
 export async function getAllStudents(): Promise<Student[]> {
-  return timed('getAllStudents', async () => {
-    const { data, error } = await supabase.from('students').select('*').order('created_at')
-    if (error) throw error
-    return (data ?? []).map(rowToStudent)
-  })
+  return withRetry('getAllStudents', () =>
+    timed('getAllStudents', async () => {
+      const { data, error } = await supabase.from('students').select('*').order('created_at')
+      if (error) throw error
+      return (data ?? []).map(rowToStudent)
+    })
+  )
 }
 
 export async function saveStudent(s: Student): Promise<void> {
@@ -105,17 +125,19 @@ export async function getAllCourses(): Promise<Course[]> {
 
 // 列表只拉元数据，不含大字段
 export async function getCoursesByStudent(studentId: string): Promise<Course[]> {
-  return timed(`getCoursesByStudent(${studentId})`, async () => {
-    const { data, error } = await supabase
-      .from('courses')
-      .select('id,student_id,date,teacher,student,topic,duration,rate,good,weak,uploaded_at')
-      .eq('student_id', studentId)
-      .order('date')
-    if (error) throw error
-    return (data ?? []).map(r => ({
-      ...rowToCourse({ ...r, reports: { report: '', vocab: '', qa: '', plan: '' }, transcript: undefined, transcript_ts: undefined }),
-    }))
-  })
+  return withRetry(`getCoursesByStudent(${studentId})`, () =>
+    timed(`getCoursesByStudent(${studentId})`, async () => {
+      const { data, error } = await supabase
+        .from('courses')
+        .select('id,student_id,date,teacher,student,topic,duration,rate,good,weak,uploaded_at')
+        .eq('student_id', studentId)
+        .order('date')
+      if (error) throw error
+      return (data ?? []).map(r => ({
+        ...rowToCourse({ ...r, reports: { report: '', vocab: '', qa: '', plan: '' }, transcript: undefined, transcript_ts: undefined }),
+      }))
+    })
+  )
 }
 
 // 按需加载单课完整数据（不含 reports）
@@ -159,16 +181,18 @@ export async function getCourseReportTabs(courseId: number): Promise<string[]> {
 
 // 一次请求拿所有 tabs 列表 + 默认 report tab 内容
 export async function getCourseReportsInit(courseId: number): Promise<{ tabs: string[]; reportHtml: string }> {
-  return timed(`getCourseReportsInit(${courseId})`, async () => {
-    const { data, error } = await supabase
-      .from('course_reports')
-      .select('tab,content')
-      .eq('course_id', courseId)
-    if (error || !data) return { tabs: [], reportHtml: '' }
-    const tabs = data.map((r: { tab: string }) => r.tab)
-    const reportRow = data.find((r: { tab: string; content: string }) => r.tab === 'report')
-    return { tabs, reportHtml: reportRow?.content ?? '' }
-  })
+  return withRetry(`getCourseReportsInit(${courseId})`, () =>
+    timed(`getCourseReportsInit(${courseId})`, async () => {
+      const { data, error } = await supabase
+        .from('course_reports')
+        .select('tab,content')
+        .eq('course_id', courseId)
+      if (error || !data) return { tabs: [], reportHtml: '' }
+      const tabs = data.map((r: { tab: string }) => r.tab)
+      const reportRow = data.find((r: { tab: string; content: string }) => r.tab === 'report')
+      return { tabs, reportHtml: reportRow?.content ?? '' }
+    })
+  )
 }
 
 export async function saveCourse(c: Course): Promise<void> {

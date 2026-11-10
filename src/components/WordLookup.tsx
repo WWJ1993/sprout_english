@@ -49,6 +49,8 @@ export function useSpeak() {
   useEffect(() => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return
     const load = () => {
+      // 主动触发一次 getVoices()，让浏览器开始加载/下载语音包
+      // （macOS Safari 首次使用某嗓音需下载，提前预热可避免「第一次点击没声音」）
       voiceRef.current = pickBestVoice(window.speechSynthesis.getVoices())
     }
     load()
@@ -60,14 +62,22 @@ export function useSpeak() {
 
   return useCallback((text: string) => {
     if (typeof window === 'undefined' || !window.speechSynthesis || !text) return
-    window.speechSynthesis.cancel()
-    const u = new SpeechSynthesisUtterance(text)
-    u.lang = 'en-US'
-    u.rate = 0.9
-    u.pitch = 1.0
-    const v = pickBestVoice(window.speechSynthesis.getVoices()) || voiceRef.current
-    if (v) u.voice = v
-    window.speechSynthesis.speak(u)
+    const synth = window.speechSynthesis
+    try {
+      // 若合成器处于暂停态（部分浏览器首次需 resume），先恢复
+      if (synth.paused) synth.resume()
+      synth.cancel()
+      const u = new SpeechSynthesisUtterance(text)
+      u.lang = 'en-US'
+      u.rate = 0.9
+      u.pitch = 1.0
+      const v = pickBestVoice(synth.getVoices()) || voiceRef.current
+      if (v) u.voice = v
+      u.onerror = (e) => console.warn('[speak] speechSynthesis error:', e.error)
+      synth.speak(u)
+    } catch (e) {
+      console.warn('[speak] speak failed:', e)
+    }
   }, [])
 }
 

@@ -458,15 +458,23 @@ export default function Courses() {
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [uploadStatus, setUploadStatus] = useState<{ ok: boolean; msg: string } | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [showList, setShowList] = useState(true)
   const detailCache = useRef<Map<number, Course>>(new Map())
 
   const load = async (studentId: string) => {
     setLoading(true)
-    const data = await getCoursesByStudent(studentId)
-    setCourses(data)
-    if (data.length && !selectedId) setSelectedId(data[data.length - 1].id)
-    setLoading(false)
+    setLoadError(null)
+    try {
+      const data = await getCoursesByStudent(studentId)
+      setCourses(data)
+      if (data.length && !selectedId) setSelectedId(data[data.length - 1].id)
+      setLoading(false)
+    } catch (e) {
+      setLoading(false)
+      setLoadError('课程数据加载失败（可能是数据库连接恢复中），请重试')
+      console.error('[Courses] load failed', e)
+    }
   }
 
   useEffect(() => {
@@ -496,7 +504,18 @@ export default function Courses() {
   const selected = courses.find(c => c.id === selectedId)
   const sorted = [...courses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
-  if (loading) return <div className="flex items-center justify-center h-64 text-gray-400">加载中…</div>
+  if (loading) return <div className="flex items-center justify-center h-64 text-gray-400">正在连接课程数据库…</div>
+  if (loadError) return (
+    <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-500">
+      <p className="text-sm">{loadError}</p>
+      <button
+        onClick={() => currentStudent && load(currentStudent.id)}
+        className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm hover:bg-indigo-700"
+      >
+        重试
+      </button>
+    </div>
+  )
 
   return (
     <div className="flex gap-4 items-start">
