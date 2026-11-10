@@ -17,7 +17,10 @@ import urllib.error
 SUPABASE_URL = "https://ibqfaouryxjctzvpdpgf.supabase.co"
 SUPABASE_ANON_KEY = "sb_publishable_2ZXmFuIo_nmFzt2KaNDFvQ_-5iyx14o"
 AUTH_EMAIL = "1042086283@qq.com"
-AUTH_PASSWORD = "xl20180827"
+# 密码从环境变量读取，避免明文落入 git 历史；运行前: export SUPABASE_AUTH_PASSWORD=你的密码
+AUTH_PASSWORD = os.environ.get("SUPABASE_AUTH_PASSWORD")
+if not AUTH_PASSWORD:
+    raise SystemExit("缺少环境变量 SUPABASE_AUTH_PASSWORD（Supabase 账户密码），请先 export 后再运行 build_manifest.py。")
 
 
 def _http(method, url, body=None, headers=None):
