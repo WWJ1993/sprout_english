@@ -372,6 +372,29 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
         </div>
       </div>
 
+      {/* 课程视频 */}
+      {course.videoUrl ? (
+        <div className="bg-white rounded-2xl p-3 mb-1 shadow-sm border border-gray-50">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-bold text-gray-700">🎬 课程视频</h3>
+            <a
+              href={course.videoUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-indigo-600 hover:underline"
+            >
+              新窗口打开
+            </a>
+          </div>
+          <video
+            src={course.videoUrl}
+            controls
+            preload="metadata"
+            className="w-full rounded-xl bg-black max-h-[60vh]"
+          />
+        </div>
+      ) : null}
+
       {/* Tabs —— 吸顶常驻：头部滑出视口后，tab 栏固定在顶栏正下方 */}
       <div className="sticky top-14 z-30 py-2 bg-[#f5f7fa]">
         <div className="bg-white rounded-2xl shadow-md border border-gray-50">

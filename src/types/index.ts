@@ -27,6 +27,7 @@ export interface Course {
   reports: CourseReports
   transcript?: string
   transcriptTs?: string
+  videoUrl?: string
   uploadedAt: string | null
 }
 

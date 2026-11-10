@@ -35,6 +35,7 @@ function rowToCourse(r: Record<string, unknown>): Course {
     reports: r.reports as Course['reports'],
     transcript: r.transcript as string | undefined,
     transcriptTs: r.transcript_ts as string | undefined,
+    videoUrl: r.video_url as string | undefined,
     uploadedAt: r.uploaded_at as string | null,
   }
 }
@@ -53,6 +54,7 @@ function courseToRow(c: Course) {
     weak: c.weak,
     transcript: c.transcript ?? null,
     transcript_ts: c.transcriptTs ?? null,
+    video_url: c.videoUrl ?? null,
     uploaded_at: c.uploadedAt ?? null,
   }
 }
@@ -145,7 +147,7 @@ export async function getCourseDetail(id: number): Promise<Course | null> {
   return timed(`getCourseDetail(${id})`, async () => {
     const { data, error } = await supabase
       .from('courses')
-      .select('id,student_id,date,teacher,student,topic,duration,rate,good,weak,transcript,transcript_ts,uploaded_at')
+      .select('id,student_id,date,teacher,student,topic,duration,rate,good,weak,transcript,transcript_ts,video_url,uploaded_at')
       .eq('id', id)
       .single()
     if (error) return null
@@ -227,6 +229,31 @@ export async function countCourses(): Promise<number> {
   const { count, error } = await supabase.from('courses').select('*', { count: 'exact', head: true })
   if (error) throw error
   return count ?? 0
+}
+
+// ---- Class videos (Supabase Storage) ----
+
+/** 上传课程视频到公开桶 class-videos，返回公开播放 URL。 */
+export async function uploadClassVideo(
+  file: Blob,
+  path: string,
+  contentType = 'video/mp4'
+): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('class-videos')
+    .upload(path, file, { contentType, upsert: true, cacheControl: '31536000' })
+  if (error) throw error
+  const { data: urlData } = supabase.storage.from('class-videos').getPublicUrl(data.path)
+  return urlData.publicUrl
+}
+
+/** 把视频 URL 写回 courses 表。 */
+export async function saveCourseVideoUrl(courseId: number, videoUrl: string): Promise<void> {
+  const { error } = await supabase
+    .from('courses')
+    .update({ video_url: videoUrl })
+    .eq('id', courseId)
+  if (error) throw error
 }
 
 // ---- Practice ----
