@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
 """上传课程视频到 Supabase Storage（公开桶 class-videos），并回写 courses.video_url。
 
-用法:
-  python upload_video.py --course-id 27 --video "/path/to/20261031-1730-Bibi.MP4"
-  python upload_video.py --course-id 27 --video "...MP4" --no-transcode   # 已是 <50MB 的小文件时
+支持两种用法：
+  单节：
+    python upload_video.py --course-id 27 --video "/Users/wwj/Downloads/20261031-1730-Bibi J.MP4"
+  批量（13 节全传）：
+    python upload_video.py --manifest manifest.json
+    # manifest.json: [{"course_id":27,"video":"/path/A.MP4"}, ...]
 
-说明:
-  - Supabase Storage 标准上传单文件上限 50MB，故默认用 ffmpeg 转码为 ~360p 小体积 MP4（约 40MB）。
-  - 转码后若仍 >50MB 会报错提示；可手动调低码率或改用 --no-transcode 上传小文件。
-  - 公开桶: 视频 URL 无需鉴权，前端 <video> 直接播放。
+上传走 TUS 分片（Supabase /storage/v1/upload/resumable），单文件不受 50MB 限制，
+可传 150MB 原画质；分片 6MB，断点续传友好。
+公开桶：视频 URL 无需鉴权，前端 <video> 直接播放。
 """
 import argparse
+import base64
 import json
 import os
-import subprocess
 import sys
-import tempfile
 import time
 import urllib.request
 import urllib.error
@@ -23,19 +24,12 @@ import urllib.error
 SUPABASE_URL = "https://ibqfaouryxjctzvpdpgf.supabase.co"
 SUPABASE_ANON_KEY = "sb_publishable_2ZXmFuIo_nmFzt2KaNDFvQ_-5iyx14o"
 BUCKET = "class-videos"
+CHUNK = 6 * 1024 * 1024  # 6MB 分片
 AUTH_EMAIL = "1042086283@qq.com"
 AUTH_PASSWORD = "xl20180827"
 
 
-def _find_ffmpeg():
-    try:
-        import imageio_ffmpeg
-        return imageio_ffmpeg.get_ffmpeg_exe()
-    except Exception:
-        return "ffmpeg"
-
-
-def _http(method, url, body=None, headers=None, binary=False, timeout=120):
+def _http(method, url, body=None, headers=None, binary=False, timeout=300):
     h = dict(headers or {})
     data = body
     if body is not None and not binary:
@@ -44,92 +38,116 @@ def _http(method, url, body=None, headers=None, binary=False, timeout=120):
     req = urllib.request.Request(url, data=data, headers=h, method=method)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            raw = resp.read()
-            return resp.status, raw.decode("utf-8", errors="replace")
+            return resp.status, dict(resp.headers), resp.read()
     except urllib.error.HTTPError as e:
-        return e.code, e.read().decode("utf-8", errors="replace")
+        return e.code, dict(e.headers), e.read()
 
 
 def get_token():
-    st, body = _http("POST", f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
-                     {"email": AUTH_EMAIL, "password": AUTH_PASSWORD},
-                     {"apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json"})
+    st, _, body = _http("POST", f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
+                        {"email": AUTH_EMAIL, "password": AUTH_PASSWORD},
+                        {"apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json"})
     if st != 200:
-        raise RuntimeError(f"登录失败 HTTP {st}: {body}")
+        raise RuntimeError(f"登录失败 HTTP {st}: {body.decode('utf-8','replace')}")
     return json.loads(body)["access_token"]
 
 
-def transcode(src, dst):
-    ff = _find_ffmpeg()
-    # ~360p，目标 ~40MB/26min（码率约 180k video + 48k audio）
-    cmd = [ff, "-y", "-i", src, "-vf", "scale=-2:360", "-c:v", "libx264",
-           "-b:v", "180k", "-maxrate", "220k", "-bufsize", "400k",
-           "-c:a", "aac", "-b:a", "48k", "-movflags", "+faststart", dst]
-    print("  转码中:", " ".join(cmd[:6]), "...")
-    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+def _b64(s):
+    return base64.b64encode(s.encode("utf-8")).decode("ascii")
 
 
-def upload_object(token, path, data, content_type):
-    url = f"{SUPABASE_URL}/storage/v1/object/{BUCKET}/{path}"
-    st, body = _http("POST", url, body=data, binary=True, timeout=300, headers={
-        "apikey": SUPABASE_ANON_KEY,
-        "Authorization": f"Bearer {token}",
-        "Content-Type": content_type,
-        "x-upsert": "true",
-        "cache-control": "31536000",
-    })
-    if st not in (200, 201):
-        raise RuntimeError(f"Storage 上传失败 HTTP {st}: {body}")
+def tus_upload(token, path, data, content_type):
+    """TUS 分片上传到 Supabase Storage，返回公开 URL。"""
+    size = len(data)
+    auth = {"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {token}"}
+
+    # 1) 创建上传会话
+    meta = ",".join([
+        f"bucket {_b64(BUCKET)}",
+        f"key {_b64(path)}",
+        f"name {_b64(os.path.basename(path))}",
+        f"content-type {_b64(content_type)}",
+    ])
+    st, hdrs, _ = _http("POST", f"{SUPABASE_URL}/storage/v1/upload/resumable", binary=True,
+                       headers={
+                           **auth, "tus-resumable": "1.0.0", "upload-length": str(size),
+                           "upload-offset": "0", "upload-metadata": meta,
+                       })
+    loc = hdrs.get("location") or hdrs.get("Location")
+    if not loc:
+        raise RuntimeError(f"创建 TUS 会话失败 HTTP {st}，无 location 头")
+    if loc.startswith("/"):
+        loc = SUPABASE_URL + loc
+    offset = 0
+    while offset < size:
+        end = min(offset + CHUNK, size)
+        chunk = data[offset:end]
+        st, hdrs, _ = _http("PATCH", loc, body=chunk, binary=True, timeout=600, headers={
+            **auth, "tus-resumable": "1.0.0", "upload-offset": str(offset),
+            "content-type": "application/offset+octet-stream",
+            "content-length": str(len(chunk)),
+        })
+        nxt = hdrs.get("upload-offset") or hdrs.get("Upload-Offset")
+        if nxt is not None:
+            offset = int(nxt)
+        else:
+            offset = end
+        pct = offset / size * 100
+        print(f"    上传进度 {pct:.0f}% ({offset//1024//1024}/{size//1024//1024} MB)")
     return f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET}/{path}"
 
 
 def patch_video_url(token, course_id, url):
-    headers = {"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {token}",
-               "Prefer": "return=representation"}
-    st, body = _http("PATCH", f"{SUPABASE_URL}/rest/v1/courses?id=eq.{course_id}",
-                     {"video_url": url}, headers=headers)
+    st, _, body = _http("PATCH", f"{SUPABASE_URL}/rest/v1/courses?id=eq.{course_id}",
+                        {"video_url": url},
+                        {"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {token}",
+                         "Prefer": "return=representation"})
     if st not in (200, 201, 204):
-        raise RuntimeError(f"回写 video_url 失败 HTTP {st}: {body}")
+        raise RuntimeError(f"回写 video_url 失败 HTTP {st}: {body.decode('utf-8','replace')}")
+
+
+def upload_one(token, course_id, video, name=None):
+    if not os.path.exists(video):
+        print(f"  ✗ 视频不存在: {video}")
+        return False
+    name = name or f"course-{course_id}.mp4"
+    print(f"  → 读取 {video} ({os.path.getsize(video)//1024//1024} MB)")
+    with open(video, "rb") as f:
+        data = f.read()
+    url = tus_upload(token, name, data, "video/mp4")
+    print(f"  ✓ 上传成功: {url}")
+    patch_video_url(token, course_id, url)
+    print(f"  ✓ 已回写 courses.video_url (course_id={course_id})")
+    return True
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--course-id", type=int, required=True)
-    ap.add_argument("--video", required=True)
-    ap.add_argument("--no-transcode", action="store_true")
-    ap.add_argument("--name", default=None, help="存储路径文件名（默认用课程日期）")
+    ap.add_argument("--course-id", type=int, help="单节模式：课程 id")
+    ap.add_argument("--video", help="单节模式：视频文件路径")
+    ap.add_argument("--manifest", help="批量模式：JSON 文件 [{course_id, video, name?}]")
+    ap.add_argument("--name", help="单节模式：存储文件名（默认 course-<id>.mp4）")
     args = ap.parse_args()
-
-    if not os.path.exists(args.video):
-        print(f"视频文件不存在: {args.video}")
-        sys.exit(1)
 
     token = get_token()
     print("✓ 已登录")
 
-    tmp = None
-    src = args.video
-    if not args.no_transcode:
-        tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
-        transcode(src, tmp)
-        src = tmp
-        size = os.path.getsize(src)
-        print(f"  转码后大小: {size/1024/1024:.1f} MB")
-        if size > 49 * 1024 * 1024:
-            print("  ⚠️ 仍超过 50MB 限制，请调低码率或分段；本次中止以免上传失败。")
-            os.unlink(src)
-            sys.exit(1)
+    jobs = []
+    if args.manifest:
+        jobs = json.load(open(args.manifest, encoding="utf-8"))
+    elif args.course_id and args.video:
+        jobs = [{"course_id": args.course_id, "video": args.video, "name": args.name}]
+    else:
+        print("用法: --manifest file.json  |  --course-id N --video /path.MP4")
+        sys.exit(1)
 
-    name = args.name or f"course-{args.course_id}.mp4"
-    with open(src, "rb") as f:
-        data = f.read()
-    url = upload_object(token, name, data, "video/mp4")
-    print(f"  ✓ 上传成功: {url}")
-    patch_video_url(token, args.course_id, url)
-    print(f"  ✓ 已回写 courses.video_url (course_id={args.course_id})")
-    if tmp:
-        os.unlink(tmp)
-    print("完成。")
+    ok = 0
+    for j in jobs:
+        cid = j["course_id"]
+        print(f"\n=== 课程 id={cid} ===")
+        if upload_one(token, cid, j["video"], j.get("name")):
+            ok += 1
+    print(f"\n完成：{ok}/{len(jobs)} 成功。")
 
 
 if __name__ == "__main__":
