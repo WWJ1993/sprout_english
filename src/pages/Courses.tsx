@@ -8,6 +8,7 @@ import TranscriptView from '../components/Transcript/TranscriptView'
 import { renderReport } from '../lib/reportTemplates'
 import type { ReportDoc } from '../lib/reportTemplates'
 import { useWordLookup } from '../components/WordLookup'
+import LessonPromptView from '../components/Prompt/LessonPromptView'
 import '../lib/report.css'
 import type { Course } from '../types'
 
@@ -16,6 +17,7 @@ const TABS = [
   { key: 'vocab', label: '句式词汇', icon: '🔤' },
   { key: 'qa', label: '问答记录', icon: '💬' },
   { key: 'plan', label: '练习计划', icon: '📝' },
+  { key: 'prompt', label: 'AI 陪练提示词', icon: '🤖' },
   { key: 'notes', label: '课堂笔记', icon: '🗒️' },
   { key: 'transcript', label: '字幕', icon: '🎬' },
 ] as const
@@ -271,6 +273,7 @@ function ReportRenderer({ html }: { html: string }) {
 }
 
 function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<number, Course> }) {
+  const { currentStudent } = useStudent()
   const [course, setCourse] = useState<Course>(() => cache.get(meta.id) ?? meta)
   const [loadingDetail, setLoadingDetail] = useState(() => !cache.has(meta.id))
   const [tab, setTab] = useState<TabKey>('report')
@@ -302,7 +305,8 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
 
   // 按需加载当前 tab 内容
   useEffect(() => {
-    if (tab === 'transcript') return
+    // prompt tab 不走 course_reports 按需加载：组件自己一次拉全部四份报告
+    if (tab === 'transcript' || tab === 'prompt') return
     if (tabContent[tab] !== undefined) return
     setLoadingTab(true)
     getCourseReport(meta.id, tab).then(content => {
@@ -331,9 +335,9 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
     }
   }
 
-  const canExport = tab === 'transcript'
+  const canExport = tab !== 'prompt' && (tab === 'transcript'
     ? !!(course.transcriptTs || course.transcript)
-    : tab !== 'notes' && hasReport(tab)
+    : tab !== 'notes' && hasReport(tab))
 
   return (
     <div className="flex-1 min-w-0">
@@ -400,7 +404,7 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
         <div className="bg-white rounded-2xl shadow-md border border-gray-50">
         <div className="flex border-b border-gray-100 overflow-x-auto">
           {TABS.map(t => {
-            const disabled = t.key !== 'transcript' && t.key !== 'notes' && !hasReport(t.key)
+            const disabled = t.key !== 'transcript' && t.key !== 'notes' && t.key !== 'prompt' && !hasReport(t.key)
             const hasNote = t.key === 'notes' && availableTabs.includes('notes')
             return (
               <button
@@ -440,6 +444,8 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
             <div className="flex items-center justify-center py-16 text-gray-400 text-sm gap-2">
               <span className="animate-spin">⟳</span> 加载中…
             </div>
+          ) : tab === 'prompt' ? (
+            <LessonPromptView course={course} student={currentStudent} />
           ) : tab === 'transcript' ? (
             <TranscriptView
               transcriptTs={course.transcriptTs}

@@ -197,6 +197,25 @@ export async function getCourseReportsInit(courseId: number): Promise<{ tabs: st
   )
 }
 
+// 一次拉取某课程的全部报告（含 notes），供「单课 AI 陪练提示词」生成使用。
+// 提示词需要同时用到 report / vocab / qa / plan 四份报告，逐个 tab 请求太慢。
+export async function getAllCourseReports(courseId: number): Promise<Record<string, string>> {
+  return withRetry(`getAllCourseReports(${courseId})`, () =>
+    timed(`getAllCourseReports(${courseId})`, async () => {
+      const { data, error } = await supabase
+        .from('course_reports')
+        .select('tab,content')
+        .eq('course_id', courseId)
+      if (error) throw error
+      const out: Record<string, string> = {}
+      for (const r of data ?? []) {
+        if (typeof r.tab === 'string' && typeof r.content === 'string') out[r.tab] = r.content
+      }
+      return out
+    })
+  )
+}
+
 export async function saveCourse(c: Course): Promise<void> {
   const row = courseToRow(c)
   const { reports, ...courseRow } = row as typeof row & { reports?: unknown }

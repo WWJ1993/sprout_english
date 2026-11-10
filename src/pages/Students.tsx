@@ -90,7 +90,7 @@ function PromptModal({ open, onClose, content }: { open: boolean; onClose: () =>
       <div className="fixed inset-0 flex items-center justify-center p-4">
         <Dialog.Panel className="bg-white rounded-2xl p-6 w-full max-w-2xl shadow-xl max-h-[90vh] flex flex-col">
           <div className="flex items-center justify-between mb-4">
-            <Dialog.Title className="text-base font-bold text-gray-800">AI 陪练提示词</Dialog.Title>
+            <Dialog.Title className="text-base font-bold text-gray-800">AI 陪练提示词 · 长期版</Dialog.Title>
             <button
               onClick={copy}
               className={`text-sm px-4 py-1.5 rounded-lg font-medium transition-colors
@@ -104,7 +104,9 @@ function PromptModal({ open, onClose, content }: { open: boolean; onClose: () =>
               {content}
             </pre>
           </div>
-          <p className="text-xs text-gray-400 mt-3">复制后粘贴到豆包「创建智能体 → 系统提示词」即可</p>
+          <p className="text-xs text-gray-400 mt-3">
+            聚合最近多节课的高频薄弱点，适合做成长期智能体；单课专属版请到「课程」页打开对应课程的「AI 陪练提示词」标签。
+          </p>
           <button
             onClick={onClose}
             className="mt-3 w-full py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors"
@@ -196,7 +198,7 @@ export default function Students() {
                 onClick={() => handleGenPrompt(s)}
                 className="text-xs px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors font-medium"
               >
-                🤖 生成 AI 陪练提示词
+                🤖 长期陪练提示词（跨课）
               </button>
               <button
                 onClick={() => setEditTarget(s)}
