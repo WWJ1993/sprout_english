@@ -281,15 +281,24 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
   const [availableTabs, setAvailableTabs] = useState<string[]>([])
   const [tabContent, setTabContent] = useState<Record<string, string>>({})
   const [loadingTab, setLoadingTab] = useState(false)
+  const [detailError, setDetailError] = useState(false)
+  const [detailNonce, setDetailNonce] = useState(0)
 
-  // 加载课程元数据 + 字幕 + 可用 tab 列表 + 默认 report 内容（一次请求）
+  // 加载课程元数据 + 字幕 + 可用 tab 列表 + 默认 report 内容
   useEffect(() => {
+    setDetailError(false)
     if (!cache.has(meta.id)) {
       setLoadingDetail(true)
-      getCourseDetail(meta.id).then(detail => {
-        if (detail) { cache.set(meta.id, detail); setCourse(detail) }
-        setLoadingDetail(false)
-      })
+      getCourseDetail(meta.id)
+        .then(detail => {
+          if (detail) { cache.set(meta.id, detail); setCourse(detail) }
+          setLoadingDetail(false)
+        })
+        .catch(e => {
+          console.error('[CourseDetail] 详情加载失败', e)
+          setDetailError(true)
+          setLoadingDetail(false)
+        })
     } else {
       setCourse(cache.get(meta.id)!)
       setLoadingDetail(false)
@@ -297,11 +306,13 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
     setTabContent({})
     setAvailableTabs([])
     setTab('report')
-    getCourseReportsInit(meta.id).then(({ tabs, reportHtml }) => {
-      setAvailableTabs(tabs)
-      if (reportHtml) setTabContent({ report: reportHtml })
-    })
-  }, [meta.id, cache])
+    getCourseReportsInit(meta.id)
+      .then(({ tabs, reportHtml }) => {
+        setAvailableTabs(tabs)
+        if (reportHtml) setTabContent({ report: reportHtml })
+      })
+      .catch(e => console.error('[CourseDetail] 报告列表加载失败', e))
+  }, [meta.id, cache, detailNonce])
 
   // 按需加载当前 tab 内容
   useEffect(() => {
@@ -451,6 +462,8 @@ function CourseDetail({ course: meta, cache }: { course: Course; cache: Map<numb
               transcriptTs={course.transcriptTs}
               transcript={course.transcript}
               basename={`${course.date}-${course.teacher}`}
+              loadError={detailError && !course.transcriptTs && !course.transcript}
+              onRetry={() => { cache.delete(meta.id); setDetailNonce(n => n + 1) }}
             />
           ) : tab === 'notes' ? (
             loadingTab ? (

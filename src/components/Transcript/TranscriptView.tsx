@@ -43,9 +43,11 @@ interface Props {
   transcriptTs?: string
   transcript?: string
   basename?: string  // 用于下载文件名，如 "2026-08-25-Sonia"
+  loadError?: boolean  // 详情读取失败（数据库暂停/连接中断），并非字幕被删除
+  onRetry?: () => void
 }
 
-export default function TranscriptView({ transcriptTs, transcript, basename = '字幕' }: Props) {
+export default function TranscriptView({ transcriptTs, transcript, basename = '字幕', loadError = false, onRetry }: Props) {
   const [search, setSearch] = useState('')
 
   const lines = useMemo(
@@ -59,10 +61,32 @@ export default function TranscriptView({ transcriptTs, transcript, basename = '�
   }, [lines, search])
 
   if (!transcriptTs && !transcript) {
+    // 详情读取失败 ≠ 字幕被删除。之前的「源视频已清理」是误导文案，会让用户
+    // 以为数据丢了；这里明确区分「连接失败」与「本课确实没有字幕」。
+    if (loadError) {
+      return (
+        <div className="flex flex-col items-center justify-center py-16 text-gray-500 gap-3">
+          <span className="text-4xl">📡</span>
+          <p className="text-sm font-medium">字幕加载失败：课程数据库连接中断</p>
+          <p className="text-xs text-gray-400 text-center max-w-sm leading-relaxed">
+            字幕数据仍保存在数据库中，只是这次没能读取到（免费版数据库空闲后需唤醒 10–20 秒）。
+          </p>
+          {onRetry && (
+            <button
+              onClick={onRetry}
+              className="mt-1 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm hover:bg-indigo-700"
+            >
+              重新加载字幕
+            </button>
+          )}
+        </div>
+      )
+    }
     return (
       <div className="flex flex-col items-center justify-center py-16 text-gray-400 gap-2">
         <span className="text-4xl">🎬</span>
-        <p className="text-sm">本课无转录文本（源视频已清理）</p>
+        <p className="text-sm">本课暂无字幕转录文本</p>
+        <p className="text-xs text-gray-300">未上传带时间戳的转写内容</p>
       </div>
     )
   }

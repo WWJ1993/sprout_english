@@ -40,8 +40,12 @@ function rowToCourse(r: Record<string, unknown>): Course {
   }
 }
 
-function courseToRow(c: Course) {
-  return {
+// 关键：只写入本次「确实提供」的字段。缺字段时绝不写 null ——
+// 否则从列表对象 / 旧数据包触发 upsert 会把数据库里已有的字幕、视频 URL 覆盖清空。
+// 数据包(packet.json)用 snake_case 的 transcript_ts，Course 用 camelCase 的
+// transcriptTs，两者都兼容，避免网页上传数据包时把字幕写成 null。
+function courseToRow(c: Course & { transcript_ts?: string }) {
+  const row: Record<string, unknown> = {
     id: c.id,
     student_id: c.studentId,
     date: c.date,
@@ -52,11 +56,13 @@ function courseToRow(c: Course) {
     rate: c.rate,
     good: c.good,
     weak: c.weak,
-    transcript: c.transcript ?? null,
-    transcript_ts: c.transcriptTs ?? null,
-    video_url: c.videoUrl ?? null,
     uploaded_at: c.uploadedAt ?? null,
   }
+  const transcriptTs = c.transcriptTs ?? c.transcript_ts
+  if (c.transcript != null) row.transcript = c.transcript
+  if (transcriptTs != null) row.transcript_ts = transcriptTs
+  if (c.videoUrl != null) row.video_url = c.videoUrl
+  return row
 }
 
 function timed<T>(label: string, fn: () => Promise<T>): Promise<T> {
@@ -142,17 +148,25 @@ export async function getCoursesByStudent(studentId: string): Promise<Course[]> 
   )
 }
 
-// 按需加载单课完整数据（不含 reports）
+// 按需加载单课完整数据（含字幕、视频 URL；不含 reports）
+// 之前这里既没加重试、又把 error 静默吞成 null，导致 Supabase 暂停/连接重置时
+// 详情页静默退回「不含字幕的列表对象」，用户以为字幕被删了。现在与其余读操作
+// 一样走 withRetry；仅「确实查无此课」(PGRST116) 返回 null，网络/临时错误抛出重试。
 export async function getCourseDetail(id: number): Promise<Course | null> {
-  return timed(`getCourseDetail(${id})`, async () => {
-    const { data, error } = await supabase
-      .from('courses')
-      .select('id,student_id,date,teacher,student,topic,duration,rate,good,weak,transcript,transcript_ts,video_url,uploaded_at')
-      .eq('id', id)
-      .single()
-    if (error) return null
-    return rowToCourse({ ...data, reports: { report: '', vocab: '', qa: '', plan: '' } })
-  })
+  return withRetry(`getCourseDetail(${id})`, () =>
+    timed(`getCourseDetail(${id})`, async () => {
+      const { data, error } = await supabase
+        .from('courses')
+        .select('id,student_id,date,teacher,student,topic,duration,rate,good,weak,transcript,transcript_ts,video_url,uploaded_at')
+        .eq('id', id)
+        .single()
+      if (error) {
+        if (error.code === 'PGRST116') return null
+        throw error
+      }
+      return rowToCourse({ ...data, reports: { report: '', vocab: '', qa: '', plan: '' } })
+    })
+  )
 }
 
 // 按需加载单个 tab 的报告内容
